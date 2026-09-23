@@ -68,17 +68,20 @@ export function DimensionField({
         />
         <span className="field__unit">mm</span>
 
-        <button
-          type="button"
-          className="field__lock"
-          aria-pressed={locked}
-          aria-label={
-            locked ? `${config.label}のロックを解除して推定に戻す` : `${config.label}を現在の値で固定する`
-          }
-          onClick={() => (locked ? onUnlock() : onChange(value))}
-        >
-          {locked ? (source === 'preset' ? '車種' : '固定') : '推定'}
-        </button>
+        {/*
+          チェックボックスにしているのは、ボタンだとラベルが「現在の状態」なのか
+          「押したときの動作」なのか読み取れないため。ラベルを固定してチェックの
+          有無で状態を示す。
+        */}
+        <label className="field__lock">
+          <input
+            type="checkbox"
+            checked={locked}
+            aria-label={`${config.label}を固定する`}
+            onChange={() => (locked ? onUnlock() : onChange(value))}
+          />
+          <span aria-hidden="true">{source === 'preset' ? '車種' : '固定'}</span>
+        </label>
       </div>
 
       <input

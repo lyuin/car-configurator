@@ -46,15 +46,15 @@ export function TireField({ input, resolved, source, onChange, onUnlock }: TireF
           onChange={(event) => onChange(event.target.value)}
         />
 
-        <button
-          type="button"
-          className="field__lock"
-          aria-pressed={locked}
-          aria-label={locked ? 'タイヤのロックを解除して推定に戻す' : 'タイヤを現在の値で固定する'}
-          onClick={() => (locked ? onUnlock() : onChange(resolved.notation))}
-        >
-          {locked ? (source === 'preset' ? '車種' : '固定') : '推定'}
-        </button>
+        <label className="field__lock">
+          <input
+            type="checkbox"
+            checked={locked}
+            aria-label="タイヤを固定する"
+            onChange={() => (locked ? onUnlock() : onChange(resolved.notation))}
+          />
+          <span aria-hidden="true">{source === 'preset' ? '車種' : '固定'}</span>
+        </label>
       </div>
 
       {error !== undefined ? (

@@ -13,7 +13,7 @@ function field(name: string) {
     container: container as HTMLElement,
     number: () => scope.getByRole('spinbutton') as HTMLInputElement,
     slider: () => scope.getByRole('slider') as HTMLInputElement,
-    lock: () => scope.getByRole('button'),
+    lock: () => scope.getByRole('checkbox') as HTMLInputElement,
     source: () => (container as HTMLElement).dataset.source,
   };
 }
@@ -51,7 +51,14 @@ describe('App 寸法の変更とロック', () => {
 
     expect(length.number().value).toBe('4800');
     expect(length.source()).toBe('explicit');
-    expect(length.lock()).toHaveAttribute('aria-pressed', 'true');
+    expect(length.lock()).toBeChecked();
+  });
+
+  it('推定値のときはロックのチェックが外れている', () => {
+    render(<App />);
+
+    expect(field('length').lock()).not.toBeChecked();
+    expect(field('length').lock()).toHaveAccessibleName('全長を固定する');
   });
 
   it('全長を変えると未ロックのホイールベースも追従する', async () => {
@@ -71,7 +78,7 @@ describe('App 寸法の変更とロック', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    // 「推定」バッジを押して現在値で固定する
+    // ロックのチェックを入れて現在値で固定する
     await user.click(field('wheelbase').lock());
     const locked = field('wheelbase').number().value;
 
@@ -84,15 +91,17 @@ describe('App 寸法の変更とロック', () => {
     expect(field('frontOverhang').source()).toBe('derived');
   });
 
-  it('固定した項目のバッジを押すと推定に戻る', async () => {
+  it('ロックのチェックを外すと推定に戻る', async () => {
     const user = userEvent.setup();
     render(<App />);
 
     await user.click(field('height').lock());
     expect(field('height').source()).toBe('explicit');
+    expect(field('height').lock()).toBeChecked();
 
     await user.click(field('height').lock());
     expect(field('height').source()).toBe('derived');
+    expect(field('height').lock()).not.toBeChecked();
   });
 
   it('スライダーを動かすと値が変わり固定される', async () => {

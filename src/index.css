@@ -215,22 +215,33 @@ body {
   color: var(--muted);
 }
 
+/*
+  ロックはチェックボックス。ラベルを「固定」に固定し、チェックの有無で状態を示す。
+  ボタンだとラベルが状態か動作か読み取れないため。
+*/
 .field__lock {
-  min-height: 36px;
-  min-width: 44px;
-  padding: 0 8px;
-  border: 1px solid var(--hairline);
-  border-radius: 8px;
-  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  /* iPad のタップ目標を確保する */
+  min-height: 44px;
+  padding: 0 4px;
   color: var(--muted);
-  font: inherit;
   font-size: 0.72rem;
-  cursor: pointer;
   white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
 }
 
-.field__lock[aria-pressed='true'] {
-  border-color: var(--accent);
+.field__lock input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.field__lock:has(input:checked) {
   color: var(--accent);
   font-weight: 600;
 }

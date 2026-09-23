@@ -105,21 +105,17 @@ export function InputPanel({
                 </button>
               ))}
             </div>
-            <button
-              type="button"
-              className="field__lock"
-              aria-pressed={spec.source.doors !== 'derived'}
-              aria-label={
-                spec.source.doors !== 'derived'
-                  ? 'ドア数のロックを解除して推定に戻す'
-                  : 'ドア数を現在の値で固定する'
-              }
-              onClick={() =>
-                spec.source.doors !== 'derived' ? onUnlock('doors') : onDoorsChange(spec.doors)
-              }
-            >
-              {spec.source.doors !== 'derived' ? '固定' : '推定'}
-            </button>
+            <label className="field__lock">
+              <input
+                type="checkbox"
+                checked={spec.source.doors !== 'derived'}
+                aria-label="ドア数を固定する"
+                onChange={() =>
+                  spec.source.doors !== 'derived' ? onUnlock('doors') : onDoorsChange(spec.doors)
+                }
+              />
+              <span aria-hidden="true">{spec.source.doors === 'preset' ? '車種' : '固定'}</span>
+            </label>
           </div>
         </div>
       </div>
