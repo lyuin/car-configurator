@@ -5,7 +5,7 @@
 
 ## 進捗（2026-09-23 時点）
 
-**Task 1〜10 完了。次は Task 11（iPad 向け仕上げ）＝最後のタスク。**
+**全11タスク完了。** 以降は「今後の拡張候補」から選んで進める。
 
 - 公開 URL: https://lyuin.github.io/car-configurator/
 - リポジトリ: https://github.com/lyuin/car-configurator （public）
@@ -526,12 +526,47 @@ Task 7 で寸法線の文字を置くときに鏡像にならない。
 - Demo: プリセット2台を重ねて違いが図と表で確認できる
 </details>
 
-### Task 11: iPad 向け仕上げ
+### Task 11: iPad 向け仕上げ ✅ 完了
+
+実装: `src/state/storage.ts`、`useUrlState` の復元順序、`public/`（マニフェストとアイコン）、
+`index.html` のメタタグ、CSS のタッチ調整、README 全面更新、テスト計577件。
+
+**状態の保存は URL コーデックの文字列をそのまま localStorage に入れる。** 専用のシリアライズを
+作らずに済み、壊れた値への耐性も `decodeState` の仕組みがそのまま効く。
+Safari のプライベートモードでは `localStorage` へのアクセス自体が例外を投げるので try/catch で包む。
+
+**復元の優先順位は URL → localStorage → 既定値。** 共有されたリンクを開いたときは必ず
+そのリンクの内容が出るべきで、前回の状態が勝ってはいけない。
+
+**ピンチズームは意図的に残した。** 当初のタスク定義では抑制するとしていたが、線画の細部を
+指で拡大して確認する用途があるため禁止しない。代わりに `touch-action: manipulation` で
+ダブルタップ拡大の待ち時間（約300ms）を消し、`overscroll-behavior: none` でバウンスを抑えた。
+スライダーは `touch-action: pan-y` にして、横ドラッグはスライダー、縦はページのスクロールに通す。
+
+**マニフェストとアイコンのパスは `./` の相対にする。** Vite はマニフェスト JSON の中身を
+書き換えないため、絶対パスだとサブパス配信（`/car-configurator/`）で壊れる。
+検証: `index.html` の `./manifest.webmanifest` → `/car-configurator/manifest.webmanifest`、
+マニフェスト内の `./icon-192.png` → `/car-configurator/icon-192.png` に解決される。
+
+アイコンは `public/icon.svg` を手書きし、`qlmanage` で PNG 化して `sips` で 512 / 192 / 180 を生成した。
+最初はアプリと同じようにホイールアーチの円弧を入れたが、アイコンサイズではタイヤと重なって
+ノイズになったので省いて輪郭を閉じる形にした。
+
+#### localStorage 保存でテストの分離が壊れた
+
+前のテストが保存した状態を次のテストが復元してしまい、9件が落ちた。
+`src/test-setup.ts` の共通 `beforeEach` で localStorage と URL ハッシュを初期化して解決。
+アプリが状態を永続化するようになった以上、テスト側にも後始末が必要という当然の帰結。
+
+<details>
+<summary>当初のタスク定義</summary>
+
 - タッチ調整（スライダーのヒットエリア、意図しないピンチズーム/バウンススクロール抑制、セーフエリア）
 - 最後の状態を localStorage に保存し、URL なしで開いたとき復元
 - ホーム画面追加用アイコンとマニフェスト、フルスクリーン
 - README に使い方・URL 形式・プリセット追加手順・将来の拡張候補
 - Demo: ホーム画面から起動しフルスクリーンで一連の操作ができる
+</details>
 
 ## 将来拡張に向けた設計上の配慮
 

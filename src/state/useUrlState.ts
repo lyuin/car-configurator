@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { loadEncodedState, saveEncodedState } from './storage';
 import { decodeState, encodeState } from './url';
 import type { AppState } from './url';
 
@@ -6,7 +7,10 @@ import type { AppState } from './url';
 const WRITE_DELAY = 200;
 
 /**
- * 状態を URL のハッシュと同期する。
+ * 状態を URL のハッシュと localStorage に同期する。
+ *
+ * 読み込みの優先順位は URL → localStorage → 既定値。共有されたリンクを開いた
+ * ときは必ずそのリンクの内容が出るべきで、前回の状態が勝ってはいけない。
  *
  * 書き込みは `history.replaceState` を使う。`pushState` だとスライダーを
  * 動かすたびに履歴が積まれて戻るボタンが使えなくなる。
@@ -15,12 +19,13 @@ const WRITE_DELAY = 200;
  * 自分が書いたハッシュは無視して、書き込みと読み込みのループを避ける。
  */
 export function useUrlState(): [AppState, (next: AppState) => void] {
-  const [state, setState] = useState<AppState>(() => decodeState(window.location.hash));
+  const [state, setState] = useState<AppState>(() => decodeState(initialEncodedState()));
   const lastWritten = useRef<string | null>(null);
 
   useEffect(() => {
     const encoded = encodeState(state);
     const timer = setTimeout(() => {
+      saveEncodedState(encoded);
       if (encoded === window.location.hash.replace(/^#/, '')) {
         return;
       }
@@ -49,4 +54,13 @@ export function useUrlState(): [AppState, (next: AppState) => void] {
   }, []);
 
   return [state, update];
+}
+
+/** URL にハッシュがあればそれを、無ければ前回保存した状態を使う */
+function initialEncodedState(): string {
+  const fromHash = window.location.hash.replace(/^#/, '');
+  if (fromHash !== '') {
+    return fromHash;
+  }
+  return loadEncodedState() ?? '';
 }

@@ -1,0 +1,29 @@
+{
+  "name": "Car Silhouette Configurator",
+  "short_name": "Car Silhouette",
+  "description": "車の寸法から簡易な線画を描き、2台を比較できるツール",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fbfbfc",
+  "theme_color": "#fbfbfc",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

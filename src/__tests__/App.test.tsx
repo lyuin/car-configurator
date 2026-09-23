@@ -809,3 +809,63 @@ describe('App 2台比較', () => {
     expect(svg.textContent).not.toContain('全長 4575');
   });
 });
+
+describe('App 前回の状態の復元', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.history.replaceState(null, '', '#');
+  });
+
+  it('編集すると localStorage に保存される', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.clear(field('length').number());
+    await user.type(field('length').number(), '4800');
+
+    await waitFor(() =>
+      expect(window.localStorage.getItem('car-configurator:state')).toContain('L:4800'),
+    );
+  });
+
+  it('URL が空なら前回の状態から復元する', () => {
+    window.localStorage.setItem('car-configurator:state', 's1&v=top&a=sil:kei,L:3395');
+    render(<App />);
+
+    expect(field('length').number().value).toBe('3395');
+    expect(field('length').source()).toBe('explicit');
+    expect(screen.getByRole('img', { name: '軽の上面図' })).toBeInTheDocument();
+  });
+
+  /** 共有されたリンクを開いたときは必ずそのリンクの内容が出るべき */
+  it('URL がある場合は URL が前回の状態より優先される', () => {
+    window.localStorage.setItem('car-configurator:state', 's1&a=sil:kei,L:3395');
+    window.history.replaceState(null, '', '#s1&a=sil:sedan,L:4885');
+    render(<App />);
+
+    expect(field('length').number().value).toBe('4885');
+    expect(screen.getByRole('img', { name: 'セダンの側面図' })).toBeInTheDocument();
+  });
+
+  it('保存された状態が壊れていても既定の状態で開く', () => {
+    window.localStorage.setItem('car-configurator:state', 'garbage!!!');
+    render(<App />);
+
+    expect(screen.getByRole('img', { name: 'SUVの側面図' })).toBeInTheDocument();
+  });
+
+  it('2台比較の状態も復元される', () => {
+    window.localStorage.setItem(
+      'car-configurator:state',
+      's1&m=sbs&a=sil:suv,L:4575&b=sil:pickup,L:5885',
+    );
+    render(<App />);
+
+    expect(screen.getByRole('button', { name: '車B' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('group', { name: '比較の表示' })).getByRole('button', {
+        name: '並置',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+});

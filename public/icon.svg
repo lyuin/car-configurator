@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="96" fill="#1c1c1e"/>
+  <g fill="none" stroke="#fbfbfc" stroke-linejoin="round" stroke-linecap="round">
+    <!-- 地面 -->
+    <path d="M 72 380 L 440 380" stroke-width="8" stroke-opacity="0.3" stroke-dasharray="18 18"/>
+    <!-- 車体。アイコンサイズではホイールアーチを省いて輪郭を閉じる -->
+    <path d="M 84 318 L 84 252 L 172 234 L 236 154 L 358 154 L 406 170 L 428 252 L 428 318 Z"
+      stroke-width="16"/>
+    <!-- グリーンハウス -->
+    <path d="M 182 246 L 244 170 L 350 170 L 396 246 Z" stroke-width="12" stroke-opacity="0.7"/>
+    <!-- タイヤとリム -->
+    <circle cx="164" cy="330" r="50" stroke-width="16"/>
+    <circle cx="164" cy="330" r="21" stroke-width="12" stroke-opacity="0.55"/>
+    <circle cx="352" cy="330" r="50" stroke-width="16"/>
+    <circle cx="352" cy="330" r="21" stroke-width="12" stroke-opacity="0.55"/>
+  </g>
+</svg>

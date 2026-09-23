@@ -5,10 +5,25 @@
     <!--
       viewport-fit=cover: iPad のセーフエリア（ホームインジケータ等）まで描画を広げる。
       user-scalable は指定しない = 図をピンチで拡大できる状態を維持する。
+      線画の細部を指で拡大して確認する用途があるため、拡大の禁止はしない。
     -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="車の寸法から簡易な線画を描き、2台を比較できるツール" />
+
     <title>Car Silhouette Configurator</title>
+
+    <!-- ホーム画面に追加したときの見え方 -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Car Silhouette" />
+    <!-- mobile-web-app-capable が標準。apple- 付きは古い iOS 向けに併記する -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbfbfc" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#16161a" />
   </head>
   <body>
     <div id="root"></div>

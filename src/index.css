@@ -39,8 +39,36 @@ body {
   min-height: 100%;
 }
 
+html {
+  /* iPad を横向きにしたときに本文が勝手に拡大されるのを防ぐ */
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   background: var(--bg);
+  /* 端までスクロールしたときのバウンスを抑える */
+  overscroll-behavior: none;
+}
+
+/*
+  ダブルタップ拡大の待ち時間（約300ms）を消してタップの反応を良くする。
+  ピンチズームは figure の細部を見るのに使うので禁止しない。
+*/
+button,
+input,
+select,
+label,
+.segmented__item,
+.presets__item {
+  touch-action: manipulation;
+}
+
+/* iPad で長押ししたときの選択ハイライトを抑える（図とボタンのみ） */
+button,
+.car {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .app {
@@ -473,6 +501,8 @@ body {
   /* 指でつまみやすい高さを確保する */
   height: 32px;
   accent-color: var(--accent);
+  /* 横方向のドラッグはスライダーが受け取り、縦はページのスクロールに通す */
+  touch-action: pan-y;
 }
 
 .field[data-source='derived'] .field__slider {
