@@ -13,7 +13,16 @@ import type { ResolvedSpec } from './types';
 export type Point = readonly [x: number, y: number];
 
 /** 描画要素の役割。スタイル（線の太さ・色）はこの役割ごとに CSS で決める */
-export type ShapeRole = 'body' | 'glass' | 'tire' | 'rim' | 'detail' | 'ground';
+export type ShapeRole =
+  | 'body'
+  | 'glass'
+  | 'tire'
+  | 'rim'
+  | 'detail'
+  | 'ground'
+  | 'grid'
+  | 'dimension'
+  | 'label';
 
 export type Shape =
   | { readonly kind: 'path'; readonly role: ShapeRole; readonly d: string }
@@ -23,6 +32,18 @@ export type Shape =
       readonly cx: number;
       readonly cy: number;
       readonly r: number;
+    }
+  | {
+      readonly kind: 'text';
+      readonly role: ShapeRole;
+      readonly x: number;
+      readonly y: number;
+      readonly text: string;
+      readonly anchor: 'start' | 'middle' | 'end';
+      /** フォントサイズ (mm)。SVG のテキストは viewBox に合わせて拡大縮小する */
+      readonly fontSize: number;
+      /** ラベルの回転角（度）。縦方向の寸法で使う */
+      readonly rotate?: number;
     };
 
 export interface Bounds {
@@ -510,4 +531,222 @@ export function expandBounds(bounds: Bounds, extent: { width: number; height: nu
     maxX: centerX + halfWidth,
     maxY: centerY + halfHeight,
   };
+}
+
+/* ========================================================================
+ * グリッドと寸法線
+ *
+ * どちらも独立した関数が図形を返し、App 側で車体の図形と結合する。
+ * 将来の人物シルエット（スケール参照）も同じ形で並べられる。
+ * ===================================================================== */
+
+/** グリッドの間隔 (mm) */
+export const GRID_STEP = 500;
+
+/** 線が多すぎて描画が重くなるのを防ぐ上限 */
+const MAX_GRID_LINES = 120;
+
+/**
+ * 背景のグリッド。
+ *
+ * 原点（地面・前端バンパー）が線上に来るよう間隔の倍数に合わせる。
+ * 表示範囲に対して引くので、車体のジオメトリではなく最終的な bounds を渡す。
+ */
+export function buildGrid(bounds: Bounds, step: number = GRID_STEP): readonly Shape[] {
+  const shapes: Shape[] = [];
+  const spanX = bounds.maxX - bounds.minX;
+  const spanY = bounds.maxY - bounds.minY;
+
+  if (step <= 0 || spanX / step > MAX_GRID_LINES || spanY / step > MAX_GRID_LINES) {
+    return shapes;
+  }
+
+  for (let x = Math.ceil(bounds.minX / step) * step; x <= bounds.maxX; x += step) {
+    shapes.push({ kind: 'path', role: 'grid', d: linePath([x, bounds.minY], [x, bounds.maxY]) });
+  }
+  for (let y = Math.ceil(bounds.minY / step) * step; y <= bounds.maxY; y += step) {
+    shapes.push({ kind: 'path', role: 'grid', d: linePath([bounds.minX, y], [bounds.maxX, y]) });
+  }
+
+  return shapes;
+}
+
+/**
+ * 寸法線を表示するときに必要な余白の倍率。
+ *
+ * 寸法線は車体の外側に置くため、ON のときだけ表示範囲を広げる。
+ * 先に広げた範囲を確定してからその内側に配置することで、
+ * 3ビュー間の縮尺統一が崩れないようにする。
+ */
+export const DIMENSION_PADDING = { width: 1.08, height: 1.45 } as const;
+
+/**
+ * 車体が占める範囲。寸法線はこの外周を基準に、余白の内側へ配置する。
+ *
+ * 表示範囲の端を基準にすると、ビューによって車体の位置が違うため
+ * 寸法線が車体に重なったり遠く離れたりする。
+ */
+interface ContentBox {
+  readonly left: number;
+  readonly right: number;
+  /** 下端（正の方向）。側面図・正面図は地面、上面図は車体の右端 */
+  readonly bottom: number;
+}
+
+function contentBoxOf(spec: ResolvedSpec, kind: ViewKind): ContentBox {
+  switch (kind) {
+    case 'side':
+      return { left: 0, right: spec.length, bottom: 0 };
+    case 'front':
+      return { left: -spec.width / 2, right: spec.width / 2, bottom: 0 };
+    case 'top':
+      return { left: 0, right: spec.length, bottom: spec.width / 2 };
+  }
+}
+
+/** 寸法値のフォントサイズ (mm)。図の幅に対する比率で決める */
+export function dimensionFontSize(bounds: Bounds): number {
+  return (bounds.maxX - bounds.minX) / 48;
+}
+
+/**
+ * 寸法線を組み立てる。
+ *
+ * `bounds` は余白を広げたあとの最終的な表示範囲。その内側の余白部分に
+ * 寸法線を配置する。
+ */
+export function buildDimensions(
+  spec: ResolvedSpec,
+  kind: ViewKind,
+  bounds: Bounds,
+): readonly Shape[] {
+  const fontSize = dimensionFontSize(bounds);
+  const tick = fontSize * 0.5;
+  const content = contentBoxOf(spec, kind);
+
+  // 車体の外周から表示範囲の端までの余白
+  const bottomMargin = bounds.maxY - content.bottom;
+  const leftMargin = content.left - bounds.minX;
+  const rightMargin = bounds.maxX - content.right;
+
+  // 水平寸法は2段に分ける。近い方が内訳、遠い方が全体
+  const innerBandY = content.bottom + bottomMargin * 0.3;
+  const outerBandY = content.bottom + bottomMargin * 0.62;
+
+  const shapes: Shape[] = [];
+  const horizontal = (y: number, from: number, to: number, label: string) => {
+    shapes.push(...horizontalDimension(y, from, to, label, tick, fontSize));
+  };
+  const vertical = (
+    x: number,
+    from: number,
+    to: number,
+    label: string,
+    labelSide: 'left' | 'right',
+  ) => {
+    shapes.push(...verticalDimension(x, from, to, label, tick, fontSize, labelSide));
+  };
+
+  switch (kind) {
+    case 'side': {
+      const frontAxleX = spec.frontOverhang;
+      const rearAxleX = spec.frontOverhang + spec.wheelbase;
+      horizontal(innerBandY, 0, frontAxleX, `前OH ${spec.frontOverhang}`);
+      horizontal(innerBandY, frontAxleX, rearAxleX, `WB ${spec.wheelbase}`);
+      horizontal(innerBandY, rearAxleX, spec.length, `後OH ${spec.rearOverhang}`);
+      horizontal(outerBandY, 0, spec.length, `全長 ${spec.length}`);
+      vertical(content.left - leftMargin * 0.45, 0, -spec.height, `全高 ${spec.height}`, 'left');
+      vertical(
+        content.right + rightMargin * 0.45,
+        0,
+        -spec.tire.outerDiameter,
+        `タイヤ外径 ${Math.round(spec.tire.outerDiameter)}`,
+        'right',
+      );
+      break;
+    }
+    case 'front': {
+      horizontal(
+        innerBandY,
+        -spec.trackFront / 2,
+        spec.trackFront / 2,
+        `トレッド ${spec.trackFront}`,
+      );
+      horizontal(outerBandY, -spec.width / 2, spec.width / 2, `全幅 ${spec.width}`);
+      vertical(content.left - leftMargin * 0.45, 0, -spec.height, `全高 ${spec.height}`, 'left');
+      break;
+    }
+    case 'top': {
+      const frontAxleX = spec.frontOverhang;
+      const rearAxleX = spec.frontOverhang + spec.wheelbase;
+      horizontal(innerBandY, frontAxleX, rearAxleX, `WB ${spec.wheelbase}`);
+      horizontal(outerBandY, 0, spec.length, `全長 ${spec.length}`);
+      vertical(
+        content.left - leftMargin * 0.45,
+        -spec.width / 2,
+        spec.width / 2,
+        `全幅 ${spec.width}`,
+        'left',
+      );
+      break;
+    }
+  }
+
+  return shapes;
+}
+
+/**
+ * 水平方向の寸法線。両端に短い縦の目印を付ける。
+ *
+ * ラベルは線の下側に置く。上側に置くと車体やタイヤに重なる。
+ */
+function horizontalDimension(
+  y: number,
+  from: number,
+  to: number,
+  label: string,
+  tick: number,
+  fontSize: number,
+): readonly Shape[] {
+  return [
+    { kind: 'path', role: 'dimension', d: linePath([from, y], [to, y]) },
+    { kind: 'path', role: 'dimension', d: linePath([from, y - tick], [from, y + tick]) },
+    { kind: 'path', role: 'dimension', d: linePath([to, y - tick], [to, y + tick]) },
+    {
+      kind: 'text',
+      role: 'label',
+      x: (from + to) / 2,
+      y: y + fontSize * 0.85,
+      text: label,
+      anchor: 'middle',
+      fontSize,
+    },
+  ];
+}
+
+/** 垂直方向の寸法線。ラベルは読みやすさのため反時計回りに 90 度回す */
+function verticalDimension(
+  x: number,
+  from: number,
+  to: number,
+  label: string,
+  tick: number,
+  fontSize: number,
+  labelSide: 'left' | 'right',
+): readonly Shape[] {
+  return [
+    { kind: 'path', role: 'dimension', d: linePath([x, from], [x, to]) },
+    { kind: 'path', role: 'dimension', d: linePath([x - tick, from], [x + tick, from]) },
+    { kind: 'path', role: 'dimension', d: linePath([x - tick, to], [x + tick, to]) },
+    {
+      kind: 'text',
+      role: 'label',
+      x: labelSide === 'left' ? x - tick * 1.2 : x + fontSize * 0.9,
+      y: (from + to) / 2,
+      text: label,
+      anchor: 'middle',
+      fontSize,
+      rotate: -90,
+    },
+  ];
 }

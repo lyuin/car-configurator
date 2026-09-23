@@ -2,7 +2,10 @@ import { useCallback, useMemo, useState } from 'react';
 import { CarSvg } from './components/CarSvg';
 import { InputPanel } from './components/InputPanel';
 import {
+  buildDimensions,
+  buildGrid,
   buildView,
+  DIMENSION_PADDING,
   expandBounds,
   unifiedViewExtent,
   VIEW_KINDS,
@@ -24,13 +27,35 @@ import type { CarInput, DimensionKey, Silhouette, SpecFieldKey } from './domain/
 export default function App() {
   const [input, setInput] = useState<CarInput>({ silhouette: 'suv' });
   const [view, setView] = useState<ViewKind>('side');
+  const [showGrid, setShowGrid] = useState(true);
+  const [showDimensions, setShowDimensions] = useState(false);
 
   const spec = useMemo(() => resolve(input), [input]);
+
   const geometry = useMemo(() => {
     const built = buildView(spec, view);
-    // 3ビューで縮尺を揃える
-    return { ...built, bounds: expandBounds(built.bounds, unifiedViewExtent(spec)) };
-  }, [spec, view]);
+
+    // 3ビューで縮尺を揃える。寸法線は車体の外側に置くため先に余白を広げてから配置する
+    const extent = unifiedViewExtent(spec);
+    const bounds = expandBounds(
+      built.bounds,
+      showDimensions
+        ? {
+            width: extent.width * DIMENSION_PADDING.width,
+            height: extent.height * DIMENSION_PADDING.height,
+          }
+        : extent,
+    );
+
+    return {
+      bounds,
+      shapes: [
+        ...(showGrid ? buildGrid(bounds) : []),
+        ...built.shapes,
+        ...(showDimensions ? buildDimensions(spec, view, bounds) : []),
+      ],
+    };
+  }, [spec, view, showGrid, showDimensions]);
 
   const handleDimensionChange = useCallback((key: DimensionKey, value: number) => {
     setInput((current) => setDimension(current, key, value));
@@ -77,18 +102,39 @@ export default function App() {
         </section>
 
         <section className="layout__view" aria-label="図">
-          <div className="segmented segmented--views" role="group" aria-label="ビュー">
-            {VIEW_KINDS.map((kind) => (
-              <button
-                key={kind}
-                type="button"
-                className="segmented__item"
-                aria-pressed={kind === view}
-                onClick={() => setView(kind)}
-              >
-                {VIEW_LABELS[kind]}
-              </button>
-            ))}
+          <div className="viewbar">
+            <div className="segmented" role="group" aria-label="ビュー">
+              {VIEW_KINDS.map((kind) => (
+                <button
+                  key={kind}
+                  type="button"
+                  className="segmented__item"
+                  aria-pressed={kind === view}
+                  onClick={() => setView(kind)}
+                >
+                  {VIEW_LABELS[kind]}
+                </button>
+              ))}
+            </div>
+
+            <div className="viewbar__toggles">
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={showGrid}
+                  onChange={(event) => setShowGrid(event.target.checked)}
+                />
+                <span>グリッド</span>
+              </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={showDimensions}
+                  onChange={(event) => setShowDimensions(event.target.checked)}
+                />
+                <span>寸法線</span>
+              </label>
+            </div>
           </div>
 
           <CarSvg

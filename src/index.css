@@ -151,8 +151,45 @@ body {
   font-weight: 600;
 }
 
-.segmented--views {
+/* --- ビューの操作バー ---------------------------------------------------- */
+
+.viewbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 8px;
+}
+
+.viewbar__toggles {
+  display: flex;
+  gap: 4px;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 44px;
+  padding: 0 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.toggle:has(input:checked) {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .segmented--compact .segmented__item {
@@ -320,6 +357,24 @@ body {
   stroke-width: 1;
   opacity: 0.35;
   stroke-dasharray: 8 6;
+}
+
+.car__grid {
+  stroke-width: 0.5;
+  opacity: 0.22;
+}
+
+.car__dimension {
+  stroke-width: 1;
+  opacity: 0.55;
+}
+
+/* 寸法値。線ではなく塗りで描く */
+.car__label {
+  fill: var(--car-line);
+  stroke: none;
+  opacity: 0.8;
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
 }
 
 /* --- 警告とスペック ------------------------------------------------------ */

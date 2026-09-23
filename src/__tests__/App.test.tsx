@@ -284,3 +284,76 @@ describe('App ビュー切替', () => {
     expect(screen.getByRole('img').innerHTML).not.toBe(before);
   });
 });
+
+describe('App グリッドと寸法線', () => {
+  const svg = () => screen.getByRole('img');
+
+  it('グリッドは既定で表示され、寸法線は既定で非表示', () => {
+    render(<App />);
+
+    expect(screen.getByRole('checkbox', { name: 'グリッド' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: '寸法線' })).not.toBeChecked();
+    expect(svg().querySelectorAll('.car__grid').length).toBeGreaterThan(0);
+    expect(svg().querySelectorAll('.car__dimension')).toHaveLength(0);
+  });
+
+  it('グリッドを切ると線が消える', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('checkbox', { name: 'グリッド' }));
+
+    expect(svg().querySelectorAll('.car__grid')).toHaveLength(0);
+  });
+
+  it('寸法線を入れると数値付きのラベルが出る', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('checkbox', { name: '寸法線' }));
+
+    expect(svg().querySelectorAll('.car__dimension').length).toBeGreaterThan(0);
+    expect(svg().textContent).toContain('全長 4575');
+    expect(svg().textContent).toContain('WB 2675');
+    expect(svg().textContent).toContain('全高 1690');
+  });
+
+  it('寸法線を入れると表示範囲が広がる', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const widthOf = () => Number(svg().getAttribute('viewBox')?.split(' ')[2]);
+    const before = widthOf();
+
+    await user.click(screen.getByRole('checkbox', { name: '寸法線' }));
+
+    expect(widthOf()).toBeGreaterThan(before);
+  });
+
+  it('寸法線 ON のままビューを切り替えても縮尺が揃う', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('checkbox', { name: '寸法線' }));
+    const widthOf = () => svg().getAttribute('viewBox')?.split(' ')[2];
+    const side = widthOf();
+
+    await user.click(screen.getByRole('button', { name: '正面' }));
+    expect(widthOf()).toBe(side);
+    expect(svg().textContent).toContain('トレッド');
+
+    await user.click(screen.getByRole('button', { name: '上面' }));
+    expect(widthOf()).toBe(side);
+  });
+
+  it('寸法を変えるとラベルの数値も変わる', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('checkbox', { name: '寸法線' }));
+    await user.clear(field('length').number());
+    await user.type(field('length').number(), '5000');
+
+    expect(svg().textContent).toContain('全長 5000');
+  });
+});

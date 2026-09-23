@@ -375,7 +375,7 @@ describe('buildSideView シルエットごとの違い', () => {
     for (const shape of geometry.shapes) {
       if (shape.kind === 'path') {
         expect(shape.d).not.toContain('NaN');
-      } else {
+      } else if (shape.kind === 'circle') {
         expect(Number.isFinite(shape.r)).toBe(true);
         expect(shape.r).toBeGreaterThan(0);
       }

@@ -65,6 +65,23 @@ function ShapeElement({ shape }: { readonly shape: Shape }) {
     );
   }
 
+  if (shape.kind === 'text') {
+    return (
+      <text
+        className={className}
+        x={shape.x}
+        y={shape.y}
+        textAnchor={shape.anchor}
+        fontSize={shape.fontSize}
+        {...(shape.rotate !== undefined
+          ? { transform: `rotate(${shape.rotate} ${shape.x} ${shape.y})` }
+          : {})}
+      >
+        {shape.text}
+      </text>
+    );
+  }
+
   return <path className={className} d={shape.d} vectorEffect="non-scaling-stroke" />;
 }
 
