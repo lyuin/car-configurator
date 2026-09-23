@@ -1,11 +1,13 @@
 :root {
   --bg: #fbfbfc;
+  --surface: #ffffff;
   --fg: #1c1c1e;
   --muted: #6b6b72;
   --hairline: #d3d3d8;
   --line-a: #1c1c1e;
   --line-b: #c2410c;
   --accent: #0a7ea4;
+  --warn: #b45309;
 
   color-scheme: light dark;
   font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
@@ -16,12 +18,14 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #16161a;
+    --surface: #1f1f24;
     --fg: #f2f2f5;
     --muted: #9a9aa2;
     --hairline: #3a3a40;
     --line-a: #f2f2f5;
     --line-b: #fb923c;
     --accent: #4fc3e8;
+    --warn: #fbbf24;
   }
 }
 
@@ -40,35 +44,104 @@ body {
 }
 
 .app {
-  /* iPad のセーフエリアを避けて内容を配置する */
-  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
 }
 
-.app h1 {
-  font-size: 1.4rem;
-  margin: 0 0 0.75em;
+.app__header h1 {
+  font-size: 1.1rem;
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-weight: 600;
 }
 
-/* --- シルエット切替 ------------------------------------------------------ */
+/* --- レイアウト ----------------------------------------------------------- */
+
+.layout {
+  display: grid;
+  gap: 16px;
+  /* 狭い画面（iPad 縦持ち）は上下積み */
+  grid-template-columns: 1fr;
+}
+
+/* iPad 横持ちを想定した2カラム。図側を広くとる */
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(320px, 380px) 1fr;
+    align-items: start;
+  }
+
+  .layout__panel {
+    /* 画面内に収め、パネルだけをスクロールさせる */
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+.layout__view {
+  position: sticky;
+  top: 0;
+}
+
+/* --- 入力パネル ---------------------------------------------------------- */
+
+.panel__section {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.panel__heading h2 {
+  font-size: 0.85rem;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.panel__note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: -4px 0 10px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.panel__reset {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+/* --- セグメントコントロール ---------------------------------------------- */
 
 .segmented {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-bottom: 16px;
 }
 
 .segmented__item {
-  /* iPad のタップ目標として十分な高さを確保する */
+  /* iPad のタップ目標として 44px を確保 */
   min-height: 44px;
-  padding: 0 14px;
+  min-width: 44px;
+  padding: 0 12px;
   border: 1px solid var(--hairline);
   border-radius: 10px;
   background: transparent;
   color: var(--fg);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   cursor: pointer;
 }
 
@@ -78,14 +151,121 @@ body {
   font-weight: 600;
 }
 
+.segmented--compact .segmented__item {
+  min-height: 36px;
+  min-width: 36px;
+  padding: 0 8px;
+}
+
+/* --- 寸法フィールド ------------------------------------------------------ */
+
+.field {
+  padding: 8px 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.field:first-of-type {
+  border-top: none;
+}
+
+.field__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field__label {
+  flex: 1;
+  font-size: 0.85rem;
+  min-width: 0;
+}
+
+.field__number,
+.field__text {
+  width: 6.5em;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.field__text {
+  width: 8em;
+  text-align: left;
+}
+
+.field__text[aria-invalid='true'] {
+  border-color: var(--warn);
+}
+
+.field__unit {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* 推定値はグレーで薄く、固定値は通常の文字色で表示する */
+.field[data-source='derived'] .field__number,
+.field[data-source='derived'] .field__text {
+  color: var(--muted);
+}
+
+.field__lock {
+  min-height: 36px;
+  min-width: 44px;
+  padding: 0 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.field__lock[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.field__slider {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  /* 指でつまみやすい高さを確保する */
+  height: 32px;
+  accent-color: var(--accent);
+}
+
+.field[data-source='derived'] .field__slider {
+  opacity: 0.6;
+}
+
+.field__hint,
+.field__error {
+  margin: 4px 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.field__error {
+  color: var(--warn);
+}
+
 /* --- 車の線画 ------------------------------------------------------------ */
 
 .car {
   display: block;
   width: 100%;
   height: auto;
-  max-height: 55vh;
-  /* 線の色は variant ごとに切り替える */
+  max-height: 60vh;
   --car-line: var(--line-a);
 }
 
@@ -101,10 +281,7 @@ body {
   stroke-linecap: round;
 }
 
-.car__body {
-  stroke-width: 2;
-}
-
+.car__body,
 .car__tire {
   stroke-width: 2;
 }
@@ -130,13 +307,20 @@ body {
   stroke-dasharray: 8 6;
 }
 
-/* --- スペック表示 -------------------------------------------------------- */
+/* --- 警告とスペック ------------------------------------------------------ */
+
+.warnings {
+  margin: 8px 0 0;
+  padding-left: 1.2em;
+  font-size: 0.78rem;
+  color: var(--warn);
+}
 
 .spec {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 8px 16px;
-  margin: 16px 0 0;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 6px 16px;
+  margin: 12px 0 0;
 }
 
 .spec__item {
@@ -144,8 +328,8 @@ body {
   justify-content: space-between;
   gap: 8px;
   border-bottom: 1px solid var(--hairline);
-  padding-bottom: 4px;
-  font-size: 0.9rem;
+  padding-bottom: 3px;
+  font-size: 0.82rem;
 }
 
 .spec dt {

@@ -5,7 +5,7 @@
 
 ## 進捗（2026-09-23 時点）
 
-**Task 1〜4 完了。次は Task 5（入力パネルとロック UI）。**
+**Task 1〜5 完了。次は Task 6（正面図・上面図とビュー切替）。**
 
 - 公開 URL: https://lyuin.github.io/car-configurator/
 - リポジトリ: https://github.com/lyuin/car-configurator （public）
@@ -279,12 +279,39 @@ Task 7 で寸法線の文字を置くときに鏡像にならない。
 - Demo: 固定スペックの側面図が表示され、シルエット切替で形が変わる
 </details>
 
-### Task 5: 入力パネルとロック UI
+### Task 5: 入力パネルとロック UI ✅ 完了
+
+実装: `src/state/carInput.ts`、`src/ui/fields.ts`、`src/components/DimensionField.tsx`、
+`src/components/TireField.tsx`、`src/components/InputPanel.tsx`、`src/App.tsx`、テスト計220件。
+
+**状態更新は `src/state/carInput.ts` に集約**。`setDimension` が「値を更新し同時にロックする」を
+担うので、将来のドラッグハンドルはこれを呼ぶだけでよい。ロック解除は `unlockField`（フィールド削除）。
+
+**UI での出所表示**: `.field[data-source]` に `explicit` / `preset` / `derived` が入る。
+推定値はグレー表示でバッジが「推定」、固定値はアクセント色で「固定」（プリセット由来は「車種」）。
+バッジをタップすると 推定→現在値で固定 / 固定→推定に戻る。
+
+**テストに RTL を追加**した。ロックの挙動は「クリックで状態が変わる」ものなので純関数のテストだけでは
+配線ミスを捕まえられない。追加した dev 依存: `@testing-library/react` `@testing-library/user-event`
+`@testing-library/jest-dom`（`src/test-setup.ts` で登録、`vite.config.ts` の `setupFiles`）。
+
+#### 数値入力で踏んだ不具合
+
+数値入力を props の値に直結すると、フィールドを空にした瞬間に `Number('')` が 0 になり
+寸法 0 が確定して図が崩れ、その後の入力が `4003000` のように連結する。
+→ `DimensionField` にローカルの下書き状態を持ち、**範囲内の数値になったときだけ確定**して
+下書きを破棄する方式にした。blur でも下書きを破棄して props の値に戻す。
+入力途中の `4` や `48` では確定しないので、打ち直しが自然にできる。
+
+<details>
+<summary>当初のタスク定義</summary>
+
 - 各項目をスライダー + 数値表示で。タイヤは規格表記テキスト、シルエットはセグメントコントロール
 - 編集で自動ロック（鍵アイコン）、推定値はグレーで「推定」表示。鍵タップで解除
 - iPad 横持ち2カラム、縦持ちは上下積みに CSS 切替
 - 将来のドラッグハンドル用に「寸法更新 + ロック」を1関数に集約
 - Demo: スライダーでリアルタイム変形。WB ロックして全長を動かすと前後 OH だけ伸びる
+</details>
 
 ### Task 6: 正面図・上面図とビュー切替
 - `buildFrontView(spec)`（全幅・全高・トレッド・タイヤ幅）、`buildTopView(spec)`（全長・全幅・WB・トレッド、キャビンは台形）
