@@ -1,3 +1,4 @@
+import { findPreset } from '../domain/presets';
 import { parseTireSpec } from '../domain/tire';
 import { SILHOUETTES, DIMENSION_KEYS } from '../domain/types';
 import { VIEW_KINDS } from '../domain/geometry';
@@ -22,6 +23,8 @@ export interface AppState {
   readonly view: ViewKind;
   readonly showGrid: boolean;
   readonly showDimensions: boolean;
+  /** 読み込んでいるプリセットの ID。各項目が車種由来かの判定に使う */
+  readonly presetId?: string;
 }
 
 export const DEFAULT_STATE: AppState = {
@@ -65,6 +68,9 @@ export function encodeState(state: AppState): string {
   if (state.showDimensions !== DEFAULT_STATE.showDimensions) {
     parts.push(`d=${state.showDimensions ? 1 : 0}`);
   }
+  if (state.presetId !== undefined) {
+    parts.push(`p=${state.presetId}`);
+  }
 
   parts.push(`a=${encodeCar(state.car)}`);
 
@@ -84,6 +90,7 @@ export function decodeState(hash: string): AppState {
   let showGrid = DEFAULT_STATE.showGrid;
   let showDimensions = DEFAULT_STATE.showDimensions;
   let car = DEFAULT_STATE.car;
+  let presetId: string | undefined;
 
   for (const token of tokens.slice(1)) {
     const separator = token.indexOf('=');
@@ -106,6 +113,12 @@ export function decodeState(hash: string): AppState {
       case 'd':
         showDimensions = value === '1';
         break;
+      case 'p':
+        // 存在しないプリセット ID は無視する
+        if (findPreset(value) !== undefined) {
+          presetId = value;
+        }
+        break;
       case 'a':
         car = decodeCar(value);
         break;
@@ -115,7 +128,13 @@ export function decodeState(hash: string): AppState {
     }
   }
 
-  return { car, view, showGrid, showDimensions };
+  return {
+    car,
+    view,
+    showGrid,
+    showDimensions,
+    ...(presetId !== undefined ? { presetId } : {}),
+  };
 }
 
 function encodeCar(car: CarInput): string {

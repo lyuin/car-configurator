@@ -461,3 +461,137 @@ describe('App URL への保存と復元', () => {
     writeText.mockRestore();
   });
 });
+
+describe('App 車種プリセット', () => {
+  beforeEach(() => {
+    window.history.replaceState(null, '', '#');
+  });
+
+  const presetList = () => within(screen.getByRole('list', { name: '車種' }));
+
+  it('30台の一覧が出る', () => {
+    render(<App />);
+
+    expect(presetList().getAllByRole('button')).toHaveLength(30);
+  });
+
+  it('検索で絞り込める', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(screen.getByRole('searchbox', { name: '車種を検索' }), 'cx-5');
+
+    expect(presetList().getAllByRole('button')).toHaveLength(1);
+    expect(presetList().getByRole('button', { name: /Mazda CX-5/ })).toBeInTheDocument();
+  });
+
+  it('該当がなければメッセージを出す', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(screen.getByRole('searchbox', { name: '車種を検索' }), 'ダンプカー');
+
+    expect(screen.getByText('該当する車種がありません')).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: '車種' })).not.toBeInTheDocument();
+  });
+
+  it('車種を選ぶと寸法が入り、出所が「車種」になる', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(presetList().getByRole('button', { name: /Mazda CX-5/ }));
+
+    expect(field('length').number().value).toBe('4575');
+    expect(field('width').number().value).toBe('1845');
+    expect(field('length').source()).toBe('preset');
+    expect(field('length').lock()).toBeChecked();
+    // 一覧の項目とパネル見出しの両方に名前が出るので、見出し側（p 要素）で確認する
+    expect(screen.getByText('Mazda CX-5', { selector: 'p' })).toBeInTheDocument();
+  });
+
+  it('プリセットが持たない項目は推定値のままになる', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(presetList().getByRole('button', { name: /Mazda CX-5/ }));
+
+    expect(field('groundClearance').source()).toBe('derived');
+    expect(field('trackFront').source()).toBe('derived');
+  });
+
+  it('読み込んだあとに編集した項目だけ「固定」に変わる', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(presetList().getByRole('button', { name: /Mazda CX-5/ }));
+    await user.clear(field('length').number());
+    await user.type(field('length').number(), '4800');
+
+    expect(field('length').source()).toBe('explicit');
+    expect(field('width').source()).toBe('preset');
+  });
+
+  it('車種を選ぶとシルエットも切り替わる', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(presetList().getByRole('button', { name: /Toyota HiAce/ }));
+
+    expect(screen.getByRole('img', { name: 'ミニバンの側面図' })).toBeInTheDocument();
+    expect(field('frontOverhang').number().value).toBe('690');
+  });
+
+  it('車種の ID が URL に入る', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(presetList().getByRole('button', { name: /Mazda CX-5/ }));
+
+    await waitFor(() =>
+      expect(window.location.hash).toContain('p=mazda-cx-5'),
+    );
+  });
+
+  it('URL から車種を復元する', () => {
+    window.history.replaceState(
+      null,
+      '',
+      '#s1&p=porsche-911&a=sil:sports,L:4535,W:1852,H:1300,wb:2450,t:235/40R19,n:Porsche%20911',
+    );
+    render(<App />);
+
+    expect(field('length').source()).toBe('preset');
+    expect(field('length').number().value).toBe('4535');
+    expect(screen.getByRole('img', { name: 'スポーツの側面図' })).toBeInTheDocument();
+  });
+
+  it('存在しない車種 ID は無視する', () => {
+    window.history.replaceState(null, '', '#s1&p=delorean&a=sil:suv,L:4600');
+    render(<App />);
+
+    // 値は残るが車種由来ではなくなる
+    expect(field('length').number().value).toBe('4600');
+    expect(field('length').source()).toBe('explicit');
+  });
+
+  it('すべて推定に戻すと車種の紐付けも外れる', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(presetList().getByRole('button', { name: /Mazda CX-5/ }));
+    await user.click(screen.getByRole('button', { name: 'すべて推定に戻す' }));
+
+    expect(field('length').source()).toBe('derived');
+    expect(screen.queryByText('Mazda CX-5', { selector: 'p' })).not.toBeInTheDocument();
+    await waitFor(() => expect(window.location.hash).not.toContain('p='));
+  });
+
+  it('車種を読み込んでから寸法を変えても警告が出ない', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(presetList().getByRole('button', { name: /Ford F-150/ }));
+
+    expect(screen.queryByRole('list', { name: '警告' })).not.toBeInTheDocument();
+  });
+});

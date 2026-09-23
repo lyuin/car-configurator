@@ -1,5 +1,7 @@
 import { DimensionField } from './DimensionField';
+import { PresetPicker } from './PresetPicker';
 import { TireField } from './TireField';
+import type { CarPreset } from '../domain/presets';
 import { DIMENSION_FIELDS, DOOR_OPTIONS } from '../ui/fields';
 import { lockedCount } from '../state/carInput';
 import { SILHOUETTE_LABELS, SILHOUETTES } from '../domain/types';
@@ -14,6 +16,8 @@ import type {
 export interface InputPanelProps {
   readonly input: CarInput;
   readonly spec: ResolvedSpec;
+  readonly presetId: string | undefined;
+  readonly onLoadPreset: (preset: CarPreset) => void;
   readonly onSilhouetteChange: (silhouette: Silhouette) => void;
   readonly onDimensionChange: (key: DimensionKey, value: number) => void;
   readonly onTireChange: (notation: string) => void;
@@ -25,6 +29,8 @@ export interface InputPanelProps {
 export function InputPanel({
   input,
   spec,
+  presetId,
+  onLoadPreset,
   onSilhouetteChange,
   onDimensionChange,
   onTireChange,
@@ -36,6 +42,14 @@ export function InputPanel({
 
   return (
     <div className="panel">
+      <div className="panel__section">
+        <div className="panel__heading">
+          <h2>車種から読み込む</h2>
+          {input.name !== undefined ? <p className="panel__note">{input.name}</p> : null}
+        </div>
+        <PresetPicker selectedId={presetId} onSelect={onLoadPreset} />
+      </div>
+
       <div className="panel__section">
         <div className="panel__heading">
           <h2>シルエット</h2>

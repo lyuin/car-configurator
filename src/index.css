@@ -241,6 +241,67 @@ body {
   padding: 0 8px;
 }
 
+/* --- 車種ピッカー -------------------------------------------------------- */
+
+.presets__search {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.presets__list {
+  /* 30台あるので一覧は高さを制限してスクロールさせる */
+  max-height: 240px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.presets__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 8px;
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.presets__item[aria-pressed='true'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.presets__meta {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.presets__empty {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 /* --- 寸法フィールド ------------------------------------------------------ */
 
 .field {

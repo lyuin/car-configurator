@@ -12,25 +12,36 @@ import {
   VIEW_KINDS,
   VIEW_LABELS,
 } from './domain/geometry';
+import { findPreset, presetFieldsOf, presetToCarInput } from './domain/presets';
 import { resolve } from './domain/resolve';
 import { SILHOUETTE_LABELS } from './domain/types';
 import {
   setDimension,
   setDoors,
+  setName,
   setSilhouette,
   setTire,
   unlockAll,
   unlockField,
 } from './state/carInput';
 import { useUrlState } from './state/useUrlState';
+import type { CarPreset } from './domain/presets';
 import type { CarInput, DimensionKey, Silhouette, SpecFieldKey } from './domain/types';
 import type { ViewKind } from './domain/geometry';
 
 export default function App() {
   const [state, setState] = useUrlState();
-  const { car, view, showGrid, showDimensions } = state;
+  const { car, view, showGrid, showDimensions, presetId } = state;
 
-  const spec = useMemo(() => resolve(car), [car]);
+  const preset = useMemo(
+    () => (presetId !== undefined ? findPreset(presetId) : undefined),
+    [presetId],
+  );
+
+  const spec = useMemo(
+    () => resolve(car, { presetFields: presetFieldsOf(car, preset) }),
+    [car, preset],
+  );
 
   const geometry = useMemo(() => {
     const built = buildView(spec, view);
@@ -100,9 +111,18 @@ export default function App() {
     [updateCar],
   );
 
+  /** すべて推定に戻す。車種の紐付けと名前も外す */
   const handleResetAll = useCallback(() => {
-    updateCar((current) => unlockAll(current));
-  }, [updateCar]);
+    const { presetId: _dropped, ...rest } = state;
+    setState({ ...rest, car: setName(unlockAll(state.car), '') });
+  }, [state, setState]);
+
+  const handleLoadPreset = useCallback(
+    (loaded: CarPreset) => {
+      setState({ ...state, presetId: loaded.id, car: presetToCarInput(loaded) });
+    },
+    [state, setState],
+  );
 
   const setView = useCallback(
     (next: ViewKind) => {
@@ -123,6 +143,8 @@ export default function App() {
           <InputPanel
             input={car}
             spec={spec}
+            presetId={presetId}
+            onLoadPreset={handleLoadPreset}
             onSilhouetteChange={handleSilhouetteChange}
             onDimensionChange={handleDimensionChange}
             onTireChange={handleTireChange}
