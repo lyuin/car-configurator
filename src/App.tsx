@@ -1,9 +1,16 @@
 import { useCallback, useMemo, useState } from 'react';
 import { CarSvg } from './components/CarSvg';
 import { InputPanel } from './components/InputPanel';
-import { buildSideView } from './domain/geometry';
+import {
+  buildView,
+  expandBounds,
+  unifiedViewExtent,
+  VIEW_KINDS,
+  VIEW_LABELS,
+} from './domain/geometry';
 import { resolve } from './domain/resolve';
 import { SILHOUETTE_LABELS } from './domain/types';
+import type { ViewKind } from './domain/geometry';
 import {
   setDimension,
   setDoors,
@@ -16,9 +23,14 @@ import type { CarInput, DimensionKey, Silhouette, SpecFieldKey } from './domain/
 
 export default function App() {
   const [input, setInput] = useState<CarInput>({ silhouette: 'suv' });
+  const [view, setView] = useState<ViewKind>('side');
 
   const spec = useMemo(() => resolve(input), [input]);
-  const geometry = useMemo(() => buildSideView(spec), [spec]);
+  const geometry = useMemo(() => {
+    const built = buildView(spec, view);
+    // 3ビューで縮尺を揃える
+    return { ...built, bounds: expandBounds(built.bounds, unifiedViewExtent(spec)) };
+  }, [spec, view]);
 
   const handleDimensionChange = useCallback((key: DimensionKey, value: number) => {
     setInput((current) => setDimension(current, key, value));
@@ -65,10 +77,24 @@ export default function App() {
         </section>
 
         <section className="layout__view" aria-label="図">
+          <div className="segmented segmented--views" role="group" aria-label="ビュー">
+            {VIEW_KINDS.map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                className="segmented__item"
+                aria-pressed={kind === view}
+                onClick={() => setView(kind)}
+              >
+                {VIEW_LABELS[kind]}
+              </button>
+            ))}
+          </div>
+
           <CarSvg
             shapes={geometry.shapes}
             bounds={geometry.bounds}
-            title={`${SILHOUETTE_LABELS[spec.silhouette]}の側面図`}
+            title={`${SILHOUETTE_LABELS[spec.silhouette]}の${VIEW_LABELS[view]}図`}
           />
 
           {spec.warnings.length > 0 ? (
@@ -87,6 +113,7 @@ export default function App() {
             <SpecItem label="フロントOH" value={spec.frontOverhang} />
             <SpecItem label="リアOH" value={spec.rearOverhang} />
             <SpecItem label="最低地上高" value={spec.groundClearance} />
+            <SpecItem label="フロントトレッド" value={spec.trackFront} />
             <SpecItem label="タイヤ外径" value={Math.round(spec.tire.outerDiameter)} />
           </dl>
         </section>

@@ -1,4 +1,4 @@
-import { SIDE_PROFILES } from './profiles';
+import { FRONT_PROFILES, SIDE_PROFILES, TOP_PROFILES } from './profiles';
 import type { ResolvedSpec } from './types';
 
 /**
@@ -257,4 +257,257 @@ function closedPolylinePath(points: readonly Point[]): string {
 /** パス文字列の桁を抑える。スナップショットを安定させる意図もある */
 function fmt(value: number): string {
   return Number(value.toFixed(1)).toString();
+}
+
+/* ========================================================================
+ * 正面図・上面図とビューの共通処理
+ * ===================================================================== */
+
+export type ViewKind = 'side' | 'front' | 'top';
+
+export const VIEW_KINDS: readonly ViewKind[] = ['side', 'front', 'top'];
+
+export const VIEW_LABELS: Record<ViewKind, string> = {
+  side: '側面',
+  front: '正面',
+  top: '上面',
+};
+
+export interface ViewGeometry {
+  readonly shapes: readonly Shape[];
+  readonly bounds: Bounds;
+}
+
+/** ビューの種類に応じた図形を組み立てる */
+export function buildView(spec: ResolvedSpec, kind: ViewKind): ViewGeometry {
+  switch (kind) {
+    case 'side':
+      return buildSideView(spec);
+    case 'front':
+      return buildFrontView(spec);
+    case 'top':
+      return buildTopView(spec);
+  }
+}
+
+/**
+ * 正面図。
+ *
+ * x は車両中心線を 0 として左右、y は地面を 0 として上方向へ負。
+ * 中心線を原点にしておくと、比較モードで2台を重ねるときに基準が自然に揃う。
+ *
+ * タイヤは地面からサイドシルまでの矩形として描く。タイヤ全体を描くと車体の線と
+ * 重なって読めなくなるうえ、正面図で意味があるのはトレッドとタイヤ幅だから。
+ * タイヤ径は側面図が担う。
+ */
+export function buildFrontView(spec: ResolvedSpec): ViewGeometry {
+  const profile = FRONT_PROFILES[spec.silhouette];
+  const sideProfile = SIDE_PROFILES[spec.silhouette];
+  const { width, height } = spec;
+  const sillY = -sillHeight(spec);
+  const halfWidth = width / 2;
+
+  const shapes: Shape[] = [];
+
+  shapes.push({
+    kind: 'path',
+    role: 'ground',
+    d: linePath([-halfWidth - GROUND_EXTENSION, 0], [halfWidth + GROUND_EXTENSION, 0]),
+  });
+
+  // 右半分の輪郭。サイドシルの高さから立ち上げる
+  const firstHalf = profile.outline[0]?.[0] ?? 0.45;
+  const right: Point[] = [
+    [firstHalf * width, sillY],
+    ...profile.outline.map(([halfRatio, yRatio]): Point => [halfRatio * width, -yRatio * height]),
+  ];
+  // 中心線でミラーして左半分を作り、閉じる
+  const left: Point[] = [...right].reverse().map(([x, y]): Point => [-x, y]);
+
+  shapes.push({ kind: 'path', role: 'body', d: closedPolylinePath([...right, ...left]) });
+
+  // ウインドシールド。側面プロファイルのベルトライン高さで正面輪郭の半幅を補間する
+  const glassBottomY = sideProfile.beltline;
+  const glassTopY = 0.97;
+  const pillarInset = 0.93;
+  const glassBottomHalf = interpolateHalf(profile.outline, glassBottomY) * pillarInset * width;
+  const glassTopHalf = interpolateHalf(profile.outline, glassTopY) * pillarInset * width;
+
+  shapes.push({
+    kind: 'path',
+    role: 'glass',
+    d: closedPolylinePath([
+      [-glassBottomHalf, -glassBottomY * height],
+      [-glassTopHalf, -glassTopY * height],
+      [glassTopHalf, -glassTopY * height],
+      [glassBottomHalf, -glassBottomY * height],
+    ]),
+  });
+
+  // タイヤ。フロントトレッドの左右に、タイヤ幅の矩形として描く
+  for (const sign of [-1, 1]) {
+    const center = (sign * spec.trackFront) / 2;
+    shapes.push({
+      kind: 'path',
+      role: 'tire',
+      d: closedPolylinePath([
+        [center - spec.tire.width / 2, 0],
+        [center - spec.tire.width / 2, sillY],
+        [center + spec.tire.width / 2, sillY],
+        [center + spec.tire.width / 2, 0],
+      ]),
+    });
+  }
+
+  return {
+    shapes,
+    bounds: {
+      minX: -halfWidth - GROUND_EXTENSION,
+      minY: -height,
+      maxX: halfWidth + GROUND_EXTENSION,
+      maxY: 0,
+    },
+  };
+}
+
+/**
+ * 上面図。
+ *
+ * x は前端バンパーを 0 として後方へ（側面図と同じ）、y は車両中心線を 0 として左右。
+ * y は高さではないので符号に上下の意味はない。
+ */
+export function buildTopView(spec: ResolvedSpec): ViewGeometry {
+  const profile = TOP_PROFILES[spec.silhouette];
+  const sideProfile = SIDE_PROFILES[spec.silhouette];
+  const { length, width } = spec;
+  const halfWidth = width / 2;
+
+  const shapes: Shape[] = [];
+
+  // 中心線
+  shapes.push({
+    kind: 'path',
+    role: 'ground',
+    d: linePath([-GROUND_EXTENSION, 0], [length + GROUND_EXTENSION, 0]),
+  });
+
+  const nearSide: Point[] = profile.outline.map(
+    ([xRatio, halfRatio]): Point => [xRatio * length, halfRatio * width],
+  );
+  const farSide: Point[] = [...nearSide].reverse().map(([x, y]): Point => [x, -y]);
+
+  shapes.push({ kind: 'path', role: 'body', d: closedPolylinePath([...nearSide, ...farSide]) });
+
+  // キャビン。側面プロファイルのグリーンハウスの x 範囲をそのまま使う
+  const roofFrontX = (sideProfile.greenhouse[1]?.[0] ?? 0.4) * length;
+  const roofRearX = (sideProfile.greenhouse[2]?.[0] ?? 0.7) * length;
+  const cabinHalf = halfWidth * 0.82;
+  const cowlX = (sideProfile.greenhouse[0]?.[0] ?? 0.3) * length;
+  const rearGlassX = (sideProfile.greenhouse[3]?.[0] ?? 0.8) * length;
+
+  shapes.push({
+    kind: 'path',
+    role: 'glass',
+    d: closedPolylinePath([
+      [cowlX, cabinHalf * 0.92],
+      [roofFrontX, cabinHalf],
+      [roofRearX, cabinHalf],
+      [rearGlassX, cabinHalf * 0.92],
+      [rearGlassX, -cabinHalf * 0.92],
+      [roofRearX, -cabinHalf],
+      [roofFrontX, -cabinHalf],
+      [cowlX, -cabinHalf * 0.92],
+    ]),
+  });
+
+  // タイヤ。上から見ると長さがタイヤ外径、幅がタイヤ幅の矩形になる
+  const axles = [
+    { x: spec.frontOverhang, track: spec.trackFront },
+    { x: spec.frontOverhang + spec.wheelbase, track: spec.trackRear },
+  ];
+  for (const axle of axles) {
+    for (const sign of [-1, 1]) {
+      const center = (sign * axle.track) / 2;
+      const inner = center - (sign * spec.tire.width) / 2;
+      const outer = center + (sign * spec.tire.width) / 2;
+      shapes.push({
+        kind: 'path',
+        role: 'tire',
+        d: closedPolylinePath([
+          [axle.x - spec.tire.outerDiameter / 2, inner],
+          [axle.x - spec.tire.outerDiameter / 2, outer],
+          [axle.x + spec.tire.outerDiameter / 2, outer],
+          [axle.x + spec.tire.outerDiameter / 2, inner],
+        ]),
+      });
+    }
+  }
+
+  return {
+    shapes,
+    bounds: {
+      minX: -GROUND_EXTENSION,
+      minY: -halfWidth,
+      maxX: length + GROUND_EXTENSION,
+      maxY: halfWidth,
+    },
+  };
+}
+
+/** 正面輪郭の指定した高さにおける半幅比を線形補間で求める */
+function interpolateHalf(outline: readonly Point[], yRatio: number): number {
+  const first = outline[0];
+  const last = outline[outline.length - 1];
+  if (first === undefined || last === undefined) {
+    return 0.45;
+  }
+  if (yRatio <= first[1]) {
+    return first[0];
+  }
+  if (yRatio >= last[1]) {
+    return last[0];
+  }
+  for (let i = 0; i < outline.length - 1; i += 1) {
+    const from = outline[i];
+    const to = outline[i + 1];
+    if (from === undefined || to === undefined) {
+      continue;
+    }
+    if (yRatio >= from[1] && yRatio <= to[1]) {
+      const span = to[1] - from[1];
+      const t = span === 0 ? 0 : (yRatio - from[1]) / span;
+      return from[0] + t * (to[0] - from[0]);
+    }
+  }
+  return last[0];
+}
+
+/**
+ * 3ビューで共通に使う表示範囲。
+ *
+ * ビューごとに範囲を合わせると、正面図に切り替えた瞬間に車が画面いっぱいに
+ * 拡大されてスケール感が失われる。最大の広がり（全長方向）に揃えることで、
+ * タブを切り替えても同じ縮尺のままになり「幅より遥かに長い」ことが読み取れる。
+ */
+export function unifiedViewExtent(spec: ResolvedSpec): { width: number; height: number } {
+  return {
+    width: spec.length + GROUND_EXTENSION * 2,
+    // 上面図の横方向の広がりは全幅なので、全高と比べて大きい方に合わせる
+    height: Math.max(spec.height, spec.width),
+  };
+}
+
+/** 中心を保ったまま、指定した広がりを満たすように範囲を広げる */
+export function expandBounds(bounds: Bounds, extent: { width: number; height: number }): Bounds {
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const centerY = (bounds.minY + bounds.maxY) / 2;
+  const halfWidth = Math.max(extent.width, bounds.maxX - bounds.minX) / 2;
+  const halfHeight = Math.max(extent.height, bounds.maxY - bounds.minY) / 2;
+
+  return {
+    minX: centerX - halfWidth,
+    minY: centerY - halfHeight,
+    maxX: centerX + halfWidth,
+    maxY: centerY + halfHeight,
+  };
 }

@@ -151,6 +151,10 @@ body {
   font-weight: 600;
 }
 
+.segmented--views {
+  margin-bottom: 8px;
+}
+
 .segmented--compact .segmented__item {
   min-height: 36px;
   min-width: 36px;

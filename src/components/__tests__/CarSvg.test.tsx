@@ -1,11 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { CarSvg } from '../CarSvg';
-import { buildSideView } from '../../domain/geometry';
+import { buildSideView, buildView, VIEW_KINDS } from '../../domain/geometry';
 import { resolve } from '../../domain/resolve';
 import { SILHOUETTES } from '../../domain/types';
+import type { ViewKind } from '../../domain/geometry';
 
-function render(silhouette: (typeof SILHOUETTES)[number]) {
-  const geometry = buildSideView(resolve({ silhouette }));
+function render(silhouette: (typeof SILHOUETTES)[number], view: ViewKind = 'side') {
+  const geometry = buildView(resolve({ silhouette }), view);
   return renderToStaticMarkup(
     <CarSvg shapes={geometry.shapes} bounds={geometry.bounds} title={silhouette} />,
   );
@@ -14,6 +15,10 @@ function render(silhouette: (typeof SILHOUETTES)[number]) {
 describe('CarSvg', () => {
   it.each(SILHOUETTES)('%s の側面図が変化しないこと', (silhouette) => {
     expect(render(silhouette)).toMatchSnapshot();
+  });
+
+  it.each(VIEW_KINDS)('SUV の%sビューが変化しないこと', (view) => {
+    expect(render('suv', view)).toMatchSnapshot();
   });
 
   it('viewBox を mm 単位でとり余白を含める', () => {

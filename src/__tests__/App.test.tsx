@@ -211,3 +211,76 @@ describe('App 矛盾した入力', () => {
     expect(screen.getByRole('list', { name: '警告' })).toBeInTheDocument();
   });
 });
+
+describe('App ビュー切替', () => {
+  it('側面・正面・上面のタブがある', () => {
+    render(<App />);
+
+    const views = screen.getByRole('group', { name: 'ビュー' });
+    expect(within(views).getByRole('button', { name: '側面' })).toBeInTheDocument();
+    expect(within(views).getByRole('button', { name: '正面' })).toBeInTheDocument();
+    expect(within(views).getByRole('button', { name: '上面' })).toBeInTheDocument();
+  });
+
+  it('初期表示は側面図', () => {
+    render(<App />);
+
+    expect(screen.getByRole('img', { name: 'SUVの側面図' })).toBeInTheDocument();
+    const views = screen.getByRole('group', { name: 'ビュー' });
+    expect(within(views).getByRole('button', { name: '側面' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('タブを押すと正面図・上面図に切り替わる', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: '正面' }));
+    expect(screen.getByRole('img', { name: 'SUVの正面図' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '上面' }));
+    expect(screen.getByRole('img', { name: 'SUVの上面図' })).toBeInTheDocument();
+  });
+
+  it('ビューを切り替えても縮尺が変わらない', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const viewBoxOf = () => screen.getByRole('img').getAttribute('viewBox')?.split(' ')[2];
+    const side = viewBoxOf();
+
+    await user.click(screen.getByRole('button', { name: '正面' }));
+    expect(viewBoxOf()).toBe(side);
+
+    await user.click(screen.getByRole('button', { name: '上面' }));
+    expect(viewBoxOf()).toBe(side);
+  });
+
+  it('ビューを切り替えても入力とロックは保持される', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.clear(field('width').number());
+    await user.type(field('width').number(), '1900');
+
+    await user.click(screen.getByRole('button', { name: '正面' }));
+
+    expect(field('width').number().value).toBe('1900');
+    expect(field('width').source()).toBe('explicit');
+  });
+
+  it('正面図でも全幅の変更が反映される', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: '正面' }));
+    const before = screen.getByRole('img').innerHTML;
+
+    await user.clear(field('width').number());
+    await user.type(field('width').number(), '2000');
+
+    expect(screen.getByRole('img').innerHTML).not.toBe(before);
+  });
+});
