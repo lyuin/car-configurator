@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
 
@@ -355,5 +355,109 @@ describe('App グリッドと寸法線', () => {
     await user.type(field('length').number(), '5000');
 
     expect(svg().textContent).toContain('全長 5000');
+  });
+});
+
+describe('App URL への保存と復元', () => {
+  beforeEach(() => {
+    window.history.replaceState(null, '', '#');
+  });
+
+  const hash = () => window.location.hash.replace(/^#/, '');
+
+  it('寸法を変えると URL に反映される', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.clear(field('length').number());
+    await user.type(field('length').number(), '4800');
+
+    await waitFor(() => expect(hash()).toContain('L:4800'));
+    expect(hash()).toMatch(/^s1&/);
+  });
+
+  it('推定値は URL に入らない', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.clear(field('length').number());
+    await user.type(field('length').number(), '4800');
+
+    await waitFor(() => expect(hash()).toContain('L:4800'));
+    expect(hash()).not.toContain('wb:');
+    expect(hash()).not.toContain('H:');
+  });
+
+  it('ビューと表示設定も URL に入る', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: '上面' }));
+    await user.click(screen.getByRole('checkbox', { name: '寸法線' }));
+
+    await waitFor(() => expect(hash()).toContain('v=top'));
+    expect(hash()).toContain('d=1');
+  });
+
+  it('URL から車の状態を復元する', () => {
+    window.history.replaceState(null, '', '#s1&v=front&d=1&a=sil:kei,L:3395,wb:2520,t:165/60R14');
+    render(<App />);
+
+    expect(field('length').number().value).toBe('3395');
+    expect(field('length').source()).toBe('explicit');
+    expect(field('wheelbase').number().value).toBe('2520');
+    expect(screen.getByRole('img', { name: '軽の正面図' })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: '寸法線' })).toBeChecked();
+  });
+
+  it('復元した状態でも未指定項目は推定値のままになる', () => {
+    window.history.replaceState(null, '', '#s1&a=sil:sedan,L:4700');
+    render(<App />);
+
+    expect(field('length').source()).toBe('explicit');
+    expect(field('height').source()).toBe('derived');
+  });
+
+  it('壊れた URL でも既定の状態で表示される', () => {
+    window.history.replaceState(null, '', '#s1&a=sil:nonsense,L:abc&zz=1');
+    render(<App />);
+
+    expect(screen.getByRole('img', { name: 'SUVの側面図' })).toBeInTheDocument();
+    expect(field('length').source()).toBe('derived');
+  });
+
+  it('URLをコピーするボタンがある', () => {
+    render(<App />);
+
+    expect(screen.getByRole('button', { name: 'URLをコピー' })).toBeInTheDocument();
+  });
+
+  it('コピーに成功すると表示が変わる', async () => {
+    // navigator.clipboard は jsdom では getter のみ。user-event が用意する
+    // スタブを spy する
+    const user = userEvent.setup();
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'URLをコピー' }));
+
+    expect(writeText).toHaveBeenCalledWith(window.location.href);
+    expect(await screen.findByRole('button', { name: 'コピーしました' })).toBeInTheDocument();
+
+    writeText.mockRestore();
+  });
+
+  it('コピーできない環境では URL を手動選択できる形で出す', async () => {
+    const user = userEvent.setup();
+    const writeText = vi
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockRejectedValue(new Error('denied'));
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'URLをコピー' }));
+
+    expect(await screen.findByRole('textbox', { name: '共有URL' })).toBeInTheDocument();
+
+    writeText.mockRestore();
   });
 });

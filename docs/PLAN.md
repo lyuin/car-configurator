@@ -5,7 +5,7 @@
 
 ## 進捗（2026-09-23 時点）
 
-**Task 1〜7 完了。次は Task 8（URL への保存と復元）。**
+**Task 1〜8 完了。次は Task 9（プリセット車種とインポート）。**
 
 - 公開 URL: https://lyuin.github.io/car-configurator/
 - リポジトリ: https://github.com/lyuin/car-configurator （public）
@@ -397,12 +397,48 @@ Task 7 で寸法線の文字を置くときに鏡像にならない。
 - Demo: トグル ON で寸法が数値付きで表示される
 </details>
 
-### Task 8: URL への保存と復元
+### Task 8: URL への保存と復元 ✅ 完了
+
+実装: `src/state/url.ts`（`encodeState` / `decodeState` / `AppState`）、
+`src/state/useUrlState.ts`、`src/components/ShareButton.tsx`、App を `AppState` 1つに統合、テスト計340件。
+
+**形式**: `#s1&v=front&d=1&a=sil:suv,L:4600,wb:2700,t:225/55R19`
+- 先頭に `s1` のスキーマ版。版が合わなければ既定値に戻す
+- 既定値と同じ項目（`v=side` `g=1` `d=0`）は省略
+- 車は短縮キーの `key:value` をカンマ区切り（`L` 全長 / `W` 全幅 / `H` 全高 / `wb` / `fo` / `ro` / `tf` / `tr` / `gc` / `t` タイヤ / `dr` ドア / `n` 名前）
+- 明示指定された項目だけを載せる → URL が短く、比率テーブルを改善しても既存 URL が新しい推定に追従する
+- 全項目を指定しても 200 文字未満
+
+**不正な値は捨てる**。壊れたハッシュ・未知のキー・未知のシルエットやビュー・範囲外の数値
+（1〜20000mm 外、非整数）・解釈できないタイヤ表記・範囲外のドア数はすべて無視して既定値にする。
+共有される前提なので、壊れたリンクでも必ず何か表示されることを優先した。
+
+**区切り文字と衝突する文字だけを退避**（`%` `&` `,` `:` `=` 空白）。`/` はそのまま残すので
+タイヤ表記が `t:225/55R19` と読める。
+
+**書き込みは `history.replaceState` を 200ms デバウンス**。`pushState` だとスライダーを動かす
+たびに履歴が積まれて戻るボタンが使えなくなる。同じタブで別の URL を貼られたときに追従するため
+`hashchange` も拾い、自分が書いたハッシュは無視してループを避ける。
+
+**App の状態を `AppState` 1つに統合**した。URL との相互変換が1か所で済む。
+
+#### テストで踏んだ点
+
+`navigator.clipboard` は jsdom では getter のみで代入できない。`Object.assign` では
+`TypeError: Cannot set property clipboard`。user-event が `setup()` で用意するスタブを
+`vi.spyOn(navigator.clipboard, 'writeText')` する形にした。
+
+**localStorage への保存は Task 11 で実装する。**
+
+<details>
+<summary>当初のタスク定義</summary>
+
 - `encodeState` / `decodeState`。明示指定項目のみ短縮キーで直列化、`s1` プレフィックス
 - 状態変更時に `history.replaceState`（入力中はデバウンス）
 - 「URLをコピー」ボタン
 - テスト: ラウンドトリップ、未知キーや壊れたハッシュのフォールバック、旧バージョンの扱い
 - Demo: URL をコピーして別タブで開くと同じ車が再現される
+</details>
 
 ### Task 9: プリセット車種とインポート
 - 寸法空間で散らばるように約30台を選定（軽トール〜超小型コミューター、ホットハッチ、ロードスター、ミッドシップ、3列SUV、ピックアップ、フルサイズバン、ロング WB の EV まで）。似た寸法は代表1台に絞る

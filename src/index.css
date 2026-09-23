@@ -48,11 +48,54 @@ body {
     max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
 }
 
+.app__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
 .app__header h1 {
   font-size: 1.1rem;
-  margin: 0 0 12px;
+  margin: 0;
   color: var(--muted);
   font-weight: 600;
+}
+
+/* --- 共有 ---------------------------------------------------------------- */
+
+.share__button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.share__fallback {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  color: var(--warn);
+}
+
+.share__url {
+  display: block;
+  width: 100%;
+  min-height: 36px;
+  margin-top: 4px;
+  padding: 0 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.75rem;
 }
 
 /* --- レイアウト ----------------------------------------------------------- */

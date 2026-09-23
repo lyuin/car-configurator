@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { CarSvg } from './components/CarSvg';
 import { InputPanel } from './components/InputPanel';
+import { ShareButton } from './components/ShareButton';
 import {
   buildDimensions,
   buildGrid,
@@ -13,7 +14,6 @@ import {
 } from './domain/geometry';
 import { resolve } from './domain/resolve';
 import { SILHOUETTE_LABELS } from './domain/types';
-import type { ViewKind } from './domain/geometry';
 import {
   setDimension,
   setDoors,
@@ -22,15 +22,15 @@ import {
   unlockAll,
   unlockField,
 } from './state/carInput';
+import { useUrlState } from './state/useUrlState';
 import type { CarInput, DimensionKey, Silhouette, SpecFieldKey } from './domain/types';
+import type { ViewKind } from './domain/geometry';
 
 export default function App() {
-  const [input, setInput] = useState<CarInput>({ silhouette: 'suv' });
-  const [view, setView] = useState<ViewKind>('side');
-  const [showGrid, setShowGrid] = useState(true);
-  const [showDimensions, setShowDimensions] = useState(false);
+  const [state, setState] = useUrlState();
+  const { car, view, showGrid, showDimensions } = state;
 
-  const spec = useMemo(() => resolve(input), [input]);
+  const spec = useMemo(() => resolve(car), [car]);
 
   const geometry = useMemo(() => {
     const built = buildView(spec, view);
@@ -57,40 +57,71 @@ export default function App() {
     };
   }, [spec, view, showGrid, showDimensions]);
 
-  const handleDimensionChange = useCallback((key: DimensionKey, value: number) => {
-    setInput((current) => setDimension(current, key, value));
-  }, []);
+  /** 車の入力を差し替える。ロックの付け外しはすべてここを通る */
+  const updateCar = useCallback(
+    (next: (current: CarInput) => CarInput) => {
+      setState({ ...state, car: next(state.car) });
+    },
+    [state, setState],
+  );
 
-  const handleSilhouetteChange = useCallback((silhouette: Silhouette) => {
-    setInput((current) => setSilhouette(current, silhouette));
-  }, []);
+  const handleDimensionChange = useCallback(
+    (key: DimensionKey, value: number) => {
+      updateCar((current) => setDimension(current, key, value));
+    },
+    [updateCar],
+  );
 
-  const handleTireChange = useCallback((notation: string) => {
-    setInput((current) => setTire(current, notation));
-  }, []);
+  const handleSilhouetteChange = useCallback(
+    (silhouette: Silhouette) => {
+      updateCar((current) => setSilhouette(current, silhouette));
+    },
+    [updateCar],
+  );
 
-  const handleDoorsChange = useCallback((doors: number) => {
-    setInput((current) => setDoors(current, doors));
-  }, []);
+  const handleTireChange = useCallback(
+    (notation: string) => {
+      updateCar((current) => setTire(current, notation));
+    },
+    [updateCar],
+  );
 
-  const handleUnlock = useCallback((key: SpecFieldKey) => {
-    setInput((current) => unlockField(current, key));
-  }, []);
+  const handleDoorsChange = useCallback(
+    (doors: number) => {
+      updateCar((current) => setDoors(current, doors));
+    },
+    [updateCar],
+  );
+
+  const handleUnlock = useCallback(
+    (key: SpecFieldKey) => {
+      updateCar((current) => unlockField(current, key));
+    },
+    [updateCar],
+  );
 
   const handleResetAll = useCallback(() => {
-    setInput((current) => unlockAll(current));
-  }, []);
+    updateCar((current) => unlockAll(current));
+  }, [updateCar]);
+
+  const setView = useCallback(
+    (next: ViewKind) => {
+      setState({ ...state, view: next });
+    },
+    [state, setState],
+  );
 
   return (
     <div className="app">
       <header className="app__header">
         <h1>Car Silhouette Configurator</h1>
+        <ShareButton />
       </header>
 
       <div className="layout">
         <section className="layout__panel" aria-label="入力">
           <InputPanel
-            input={input}
+            input={car}
             spec={spec}
             onSilhouetteChange={handleSilhouetteChange}
             onDimensionChange={handleDimensionChange}
@@ -122,7 +153,7 @@ export default function App() {
                 <input
                   type="checkbox"
                   checked={showGrid}
-                  onChange={(event) => setShowGrid(event.target.checked)}
+                  onChange={(event) => setState({ ...state, showGrid: event.target.checked })}
                 />
                 <span>グリッド</span>
               </label>
@@ -130,7 +161,7 @@ export default function App() {
                 <input
                   type="checkbox"
                   checked={showDimensions}
-                  onChange={(event) => setShowDimensions(event.target.checked)}
+                  onChange={(event) => setState({ ...state, showDimensions: event.target.checked })}
                 />
                 <span>寸法線</span>
               </label>
