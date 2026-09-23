@@ -1,7 +1,9 @@
 import { findPreset } from '../domain/presets';
+import { OVERLAY_ORIGINS } from '../domain/scene';
 import { parseTireSpec } from '../domain/tire';
 import { SILHOUETTES, DIMENSION_KEYS } from '../domain/types';
 import { VIEW_KINDS } from '../domain/geometry';
+import type { CompareMode, OverlayOrigin } from '../domain/scene';
 import type { CarInput, DimensionKey, Silhouette } from '../domain/types';
 import type { ViewKind } from '../domain/geometry';
 
@@ -12,24 +14,40 @@ import type { ViewKind } from '../domain/geometry';
  * その結果 URL が短くなり、後で比率テーブルを改善したときに
  * 既存の URL も新しい推定へ追従する。
  *
- * 例: `#s1&v=front&d=1&a=sil:suv,L:4600,wb:2700,t:225/55R19`
+ * 例: `#s1&v=front&d=1&p=mazda-cx-5&a=sil:suv,L:4575&b=sil:sedan,L:4885`
+ *
+ * 2台比較の追加時も版は上げていない。`b=` などのキーを足しただけで、
+ * 1台だけの既存 URL はそのまま読める（`b` が無ければ比較オフ）。
  */
 
-/** スキーマ版。形式を変えるときに上げる */
+/** スキーマ版。形式を壊す変更をするときに上げる */
 export const SCHEMA_VERSION = 's1';
 
-export interface AppState {
+export interface CarState {
   readonly car: CarInput;
-  readonly view: ViewKind;
-  readonly showGrid: boolean;
-  readonly showDimensions: boolean;
   /** 読み込んでいるプリセットの ID。各項目が車種由来かの判定に使う */
   readonly presetId?: string;
 }
 
+export interface AppState {
+  readonly a: CarState;
+  /** 未設定なら比較オフ */
+  readonly b?: CarState;
+  /** 編集中の車。寸法線を描く対象でもある */
+  readonly active: 'a' | 'b';
+  readonly view: ViewKind;
+  readonly compare: CompareMode;
+  readonly origin: OverlayOrigin;
+  readonly showGrid: boolean;
+  readonly showDimensions: boolean;
+}
+
 export const DEFAULT_STATE: AppState = {
-  car: { silhouette: 'suv' },
+  a: { car: { silhouette: 'suv' } },
+  active: 'a',
   view: 'side',
+  compare: 'overlay',
+  origin: 'front',
   showGrid: true,
   showDimensions: false,
 };
@@ -55,6 +73,11 @@ const DIMENSION_BY_CODE = new Map<string, DimensionKey>(
 const DIMENSION_LIMIT = { min: 1, max: 20000 } as const;
 const DOORS_LIMIT = { min: 1, max: 8 } as const;
 
+const COMPARE_CODES: Record<CompareMode, string> = {
+  overlay: 'ov',
+  sideBySide: 'sbs',
+};
+
 export function encodeState(state: AppState): string {
   const parts: string[] = [SCHEMA_VERSION];
 
@@ -68,11 +91,31 @@ export function encodeState(state: AppState): string {
   if (state.showDimensions !== DEFAULT_STATE.showDimensions) {
     parts.push(`d=${state.showDimensions ? 1 : 0}`);
   }
-  if (state.presetId !== undefined) {
-    parts.push(`p=${state.presetId}`);
+
+  // 比較に関する設定は2台目があるときだけ意味を持つ
+  if (state.b !== undefined) {
+    if (state.compare !== DEFAULT_STATE.compare) {
+      parts.push(`m=${COMPARE_CODES[state.compare]}`);
+    }
+    if (state.origin !== DEFAULT_STATE.origin) {
+      parts.push(`o=${state.origin}`);
+    }
+    if (state.active !== DEFAULT_STATE.active) {
+      parts.push(`act=${state.active}`);
+    }
   }
 
-  parts.push(`a=${encodeCar(state.car)}`);
+  if (state.a.presetId !== undefined) {
+    parts.push(`p=${state.a.presetId}`);
+  }
+  parts.push(`a=${encodeCar(state.a.car)}`);
+
+  if (state.b !== undefined) {
+    if (state.b.presetId !== undefined) {
+      parts.push(`pb=${state.b.presetId}`);
+    }
+    parts.push(`b=${encodeCar(state.b.car)}`);
+  }
 
   return parts.join('&');
 }
@@ -89,8 +132,13 @@ export function decodeState(hash: string): AppState {
   let view = DEFAULT_STATE.view;
   let showGrid = DEFAULT_STATE.showGrid;
   let showDimensions = DEFAULT_STATE.showDimensions;
-  let car = DEFAULT_STATE.car;
-  let presetId: string | undefined;
+  let compare = DEFAULT_STATE.compare;
+  let origin = DEFAULT_STATE.origin;
+  let active = DEFAULT_STATE.active;
+  let carA = DEFAULT_STATE.a.car;
+  let carB: CarInput | undefined;
+  let presetA: string | undefined;
+  let presetB: string | undefined;
 
   for (const token of tokens.slice(1)) {
     const separator = token.indexOf('=');
@@ -101,26 +149,50 @@ export function decodeState(hash: string): AppState {
     const value = token.slice(separator + 1);
 
     switch (key) {
-      case 'v': {
+      case 'v':
         if (isViewKind(value)) {
           view = value;
         }
         break;
-      }
       case 'g':
         showGrid = value === '1';
         break;
       case 'd':
         showDimensions = value === '1';
         break;
+      case 'm':
+        if (value === 'sbs') {
+          compare = 'sideBySide';
+        } else if (value === 'ov') {
+          compare = 'overlay';
+        }
+        break;
+      case 'o':
+        if (isOverlayOrigin(value)) {
+          origin = value;
+        }
+        break;
+      case 'act':
+        if (value === 'a' || value === 'b') {
+          active = value;
+        }
+        break;
       case 'p':
         // 存在しないプリセット ID は無視する
         if (findPreset(value) !== undefined) {
-          presetId = value;
+          presetA = value;
+        }
+        break;
+      case 'pb':
+        if (findPreset(value) !== undefined) {
+          presetB = value;
         }
         break;
       case 'a':
-        car = decodeCar(value);
+        carA = decodeCar(value);
+        break;
+      case 'b':
+        carB = decodeCar(value);
         break;
       default:
         // 未知のキーは無視する（将来の形式追加に備える）
@@ -128,12 +200,22 @@ export function decodeState(hash: string): AppState {
     }
   }
 
+  // 2台目が無いのに active=b だと編集先が消える
+  if (carB === undefined) {
+    active = 'a';
+  }
+
   return {
-    car,
+    a: { car: carA, ...(presetA !== undefined ? { presetId: presetA } : {}) },
+    ...(carB !== undefined
+      ? { b: { car: carB, ...(presetB !== undefined ? { presetId: presetB } : {}) } }
+      : {}),
+    active,
     view,
+    compare,
+    origin,
     showGrid,
     showDimensions,
-    ...(presetId !== undefined ? { presetId } : {}),
   };
 }
 
@@ -166,7 +248,7 @@ function decodeCar(encoded: string): CarInput {
     doors?: number;
     name?: string;
   } & Partial<Record<DimensionKey, number>> = {
-    silhouette: DEFAULT_STATE.car.silhouette,
+    silhouette: DEFAULT_STATE.a.car.silhouette,
   };
 
   for (const field of encoded.split(',')) {
@@ -238,6 +320,10 @@ function isSilhouette(value: string): value is Silhouette {
 
 function isViewKind(value: string): value is ViewKind {
   return (VIEW_KINDS as readonly string[]).includes(value);
+}
+
+function isOverlayOrigin(value: string): value is OverlayOrigin {
+  return (OVERLAY_ORIGINS as readonly string[]).includes(value);
 }
 
 /** 区切り文字と衝突する文字だけを退避する。`/` はそのまま残して読みやすさを保つ */

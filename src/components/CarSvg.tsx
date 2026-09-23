@@ -1,12 +1,11 @@
 import type { Bounds, Shape, ShapeRole } from '../domain/geometry';
+import type { SceneLayer } from '../domain/scene';
 
 export interface CarSvgProps {
-  readonly shapes: readonly Shape[];
+  readonly layers: readonly SceneLayer[];
   readonly bounds: Bounds;
   /** 図の周囲に取る余白 (mm) */
   readonly padding?: number;
-  /** 比較時に2台を色で区別するための識別子。CSS 変数の切り替えに使う */
-  readonly variant?: 'a' | 'b';
   readonly className?: string;
   readonly title?: string;
 }
@@ -17,17 +16,13 @@ export interface CarSvgProps {
  * `viewBox` を mm でとるため、2台を同じスケールで並べる際は
  * 双方を含む bounds を渡すだけでスケールが揃う。
  *
+ * レイヤーごとに `<g>` を出し、色分け（`car--a` / `car--b`）と位置合わせ
+ * （`transform`）をそこで行う。パス文字列を書き換えずに済む。
+ *
  * 線の太さは `vectorEffect="non-scaling-stroke"` で px 指定する。
  * これがないと全長 5m の車と軽自動車で線の太さが変わってしまう。
  */
-export function CarSvg({
-  shapes,
-  bounds,
-  padding = 150,
-  variant = 'a',
-  className,
-  title,
-}: CarSvgProps) {
+export function CarSvg({ layers, bounds, padding = 150, className, title }: CarSvgProps) {
   const viewBox = [
     bounds.minX - padding,
     bounds.minY - padding,
@@ -37,14 +32,27 @@ export function CarSvg({
 
   return (
     <svg
-      className={['car', `car--${variant}`, className].filter(Boolean).join(' ')}
+      className={['car', className].filter(Boolean).join(' ')}
       viewBox={viewBox}
       role="img"
       {...(title !== undefined ? { 'aria-label': title } : { 'aria-hidden': true })}
       preserveAspectRatio="xMidYMid meet"
     >
-      {shapes.map((shape, index) => (
-        <ShapeElement key={index} shape={shape} />
+      {layers.map((layer) => (
+        <g
+          key={layer.id}
+          className={['car__layer', layer.variant !== undefined ? `car--${layer.variant}` : null]
+            .filter(Boolean)
+            .join(' ')}
+          data-layer={layer.id}
+          {...(layer.offsetX !== 0 || layer.offsetY !== 0
+            ? { transform: `translate(${layer.offsetX} ${layer.offsetY})` }
+            : {})}
+        >
+          {layer.shapes.map((shape, index) => (
+            <ShapeElement key={index} shape={shape} />
+          ))}
+        </g>
       ))}
     </svg>
   );

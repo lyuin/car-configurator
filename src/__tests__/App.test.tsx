@@ -595,3 +595,217 @@ describe('App 車種プリセット', () => {
     expect(screen.queryByRole('list', { name: '警告' })).not.toBeInTheDocument();
   });
 });
+
+describe('App 2台比較', () => {
+  beforeEach(() => {
+    window.history.replaceState(null, '', '#');
+  });
+
+  const addCarB = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(screen.getByRole('button', { name: '車Bを追加して比較' }));
+  };
+
+  const presetList = () => within(screen.getByRole('list', { name: '車種' }));
+  const table = () => within(screen.getByRole('table'));
+
+  it('初期状態では車Bが無く、スペック表は1台分', () => {
+    render(<App />);
+
+    expect(screen.getByRole('button', { name: '車Bを追加して比較' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '車B' })).not.toBeInTheDocument();
+    expect(table().queryByRole('columnheader', { name: '差' })).not.toBeInTheDocument();
+  });
+
+  it('車Bを追加すると比較の操作と差分列が出る', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await addCarB(user);
+
+    expect(screen.getByRole('button', { name: '車B' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: '比較の表示' })).toBeInTheDocument();
+    expect(table().getByRole('columnheader', { name: '差' })).toBeInTheDocument();
+  });
+
+  it('車Bを追加すると編集対象が車Bに切り替わる', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await addCarB(user);
+
+    expect(screen.getByRole('button', { name: '車B' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '車A' })).toHaveAttribute('aria-pressed', 'false');
+    // 初期の車B はセダン（車A の SUV と違う車を並べる）
+    expect(field('length').number().value).toBe('4885');
+  });
+
+  it('タブで編集対象を切り替えられる', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await addCarB(user);
+    await user.click(screen.getByRole('button', { name: '車A' }));
+
+    expect(field('length').number().value).toBe('4575');
+
+    await user.click(screen.getByRole('button', { name: '車B' }));
+
+    expect(field('length').number().value).toBe('4885');
+  });
+
+  it('編集は選択中の車にだけ効く', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await addCarB(user);
+    await user.clear(field('length').number());
+    await user.type(field('length').number(), '5000');
+
+    expect(table().getByRole('row', { name: /全長/ })).toHaveTextContent('5,000 mm');
+
+    await user.click(screen.getByRole('button', { name: '車A' }));
+
+    // 車A は変わっていない
+    expect(field('length').number().value).toBe('4575');
+  });
+
+  it('図に2台分のレイヤーが出る', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await addCarB(user);
+
+    const svg = screen.getByRole('img');
+    expect(svg.querySelector('[data-layer="a"]')).not.toBeNull();
+    expect(svg.querySelector('[data-layer="b"]')).not.toBeNull();
+    expect(svg.querySelector('.car--b')).not.toBeNull();
+  });
+
+  it('並置と重ねを切り替えられる', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await addCarB(user);
+    const modes = within(screen.getByRole('group', { name: '比較の表示' }));
+
+    // 既定は重ね
+    expect(modes.getByRole('button', { name: '重ね' })).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(modes.getByRole('button', { name: '並置' }));
+
+    expect(modes.getByRole('button', { name: '並置' })).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() => expect(window.location.hash).toContain('m=sbs'));
+  });
+
+  it('重ねモードでは基準点を選べる', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await addCarB(user);
+    const origin = screen.getByRole('combobox', { name: '重ねる基準点' });
+
+    await user.selectOptions(origin, 'axle');
+
+    await waitFor(() => expect(window.location.hash).toContain('o=axle'));
+  });
+
+  it('並置モードでは基準点の選択を出さない', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await addCarB(user);
+    await user.click(within(screen.getByRole('group', { name: '比較の表示' })).getByRole('button', { name: '並置' }));
+
+    expect(screen.queryByRole('combobox', { name: '重ねる基準点' })).not.toBeInTheDocument();
+  });
+
+  it('正面図では基準点の選択を出さない（中心線で揃うため）', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await addCarB(user);
+    await user.click(screen.getByRole('button', { name: '正面' }));
+
+    expect(screen.queryByRole('combobox', { name: '重ねる基準点' })).not.toBeInTheDocument();
+  });
+
+  it('スペック表に差分が符号付きで出る', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await addCarB(user);
+
+    const lengthRow = table().getByRole('row', { name: /全長/ });
+    // 車A SUV 4575 / 車B セダン 4885 → +310
+    expect(lengthRow).toHaveTextContent('4,575 mm');
+    expect(lengthRow).toHaveTextContent('4,885 mm');
+    expect(lengthRow).toHaveTextContent('+310');
+  });
+
+  it('シルエットが違う行は差分の代わりに記号を出す', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await addCarB(user);
+
+    expect(table().getByRole('row', { name: /シルエット/ })).toHaveTextContent('≠');
+  });
+
+  it('両方に車種を読み込んで比較できる', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(presetList().getByRole('button', { name: /Mazda CX-5/ }));
+    await addCarB(user);
+    await user.click(presetList().getByRole('button', { name: /Toyota Land Cruiser 300/ }));
+
+    expect(table().getByRole('columnheader', { name: 'Mazda CX-5' })).toBeInTheDocument();
+    expect(table().getByRole('columnheader', { name: 'Toyota Land Cruiser 300' })).toBeInTheDocument();
+    await waitFor(() => expect(window.location.hash).toContain('p=mazda-cx-5'));
+    expect(window.location.hash).toContain('pb=toyota-land-cruiser-300');
+  });
+
+  it('車Bを削除すると1台表示に戻る', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await addCarB(user);
+    await user.click(screen.getByRole('button', { name: '車Bを削除' }));
+
+    expect(screen.getByRole('button', { name: '車Bを追加して比較' })).toBeInTheDocument();
+    expect(table().queryByRole('columnheader', { name: '差' })).not.toBeInTheDocument();
+    expect(screen.getByRole('img').querySelector('[data-layer="b"]')).toBeNull();
+    await waitFor(() => expect(window.location.hash).not.toContain('b='));
+  });
+
+  it('2台の状態を URL から復元できる', () => {
+    window.history.replaceState(
+      null,
+      '',
+      '#s1&m=sbs&o=center&act=b&p=mazda-cx-5&a=sil:suv,L:4575,n:Mazda%20CX-5&b=sil:pickup,L:5885',
+    );
+    render(<App />);
+
+    expect(screen.getByRole('button', { name: '車B' })).toHaveAttribute('aria-pressed', 'true');
+    expect(field('length').number().value).toBe('5885');
+    expect(
+      within(screen.getByRole('group', { name: '比較の表示' })).getByRole('button', {
+        name: '並置',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('table')).toHaveTextContent('Mazda CX-5');
+  });
+
+  it('寸法線は編集中の車の分だけ出る', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await addCarB(user);
+    await user.click(screen.getByRole('checkbox', { name: '寸法線' }));
+
+    const svg = screen.getByRole('img');
+    // 編集中は車B（セダン 4885）
+    expect(svg.textContent).toContain('全長 4885');
+    expect(svg.textContent).not.toContain('全長 4575');
+  });
+});

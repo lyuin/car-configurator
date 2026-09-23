@@ -2,18 +2,16 @@ import { useCallback, useMemo } from 'react';
 import { CarSvg } from './components/CarSvg';
 import { InputPanel } from './components/InputPanel';
 import { ShareButton } from './components/ShareButton';
-import {
-  buildDimensions,
-  buildGrid,
-  buildView,
-  DIMENSION_PADDING,
-  expandBounds,
-  unifiedViewExtent,
-  VIEW_KINDS,
-  VIEW_LABELS,
-} from './domain/geometry';
+import { SpecTable } from './components/SpecTable';
+import { VIEW_KINDS, VIEW_LABELS } from './domain/geometry';
 import { findPreset, presetFieldsOf, presetToCarInput } from './domain/presets';
 import { resolve } from './domain/resolve';
+import {
+  buildScene,
+  COMPARE_MODE_LABELS,
+  OVERLAY_ORIGIN_LABELS,
+  OVERLAY_ORIGINS,
+} from './domain/scene';
 import { SILHOUETTE_LABELS } from './domain/types';
 import {
   setDimension,
@@ -26,110 +24,115 @@ import {
 } from './state/carInput';
 import { useUrlState } from './state/useUrlState';
 import type { CarPreset } from './domain/presets';
-import type { CarInput, DimensionKey, Silhouette, SpecFieldKey } from './domain/types';
-import type { ViewKind } from './domain/geometry';
+import type { CompareMode, OverlayOrigin } from './domain/scene';
+import type { CarInput, DimensionKey, ResolvedSpec, Silhouette, SpecFieldKey } from './domain/types';
+import type { CarState } from './state/url';
+
+/** 2台目を追加するときの初期状態。A と同じ車を並べても比較にならないのでセダンにする */
+const NEW_CAR: CarState = { car: { silhouette: 'sedan' } };
 
 export default function App() {
   const [state, setState] = useUrlState();
-  const { car, view, showGrid, showDimensions, presetId } = state;
+  const { a, b, active, view, compare, origin, showGrid, showDimensions } = state;
 
-  const preset = useMemo(
-    () => (presetId !== undefined ? findPreset(presetId) : undefined),
-    [presetId],
+  const specA = useSpec(a);
+  const specB = useSpec(b);
+  const comparing = specB !== undefined;
+
+  const editing = active === 'b' && b !== undefined ? b : a;
+  const editingSpec = active === 'b' && specB !== undefined ? specB : specA;
+
+  const scene = useMemo(
+    () =>
+      buildScene({
+        a: specA,
+        b: specB,
+        view,
+        compare,
+        origin,
+        active,
+        showGrid,
+        showDimensions,
+      }),
+    [specA, specB, view, compare, origin, active, showGrid, showDimensions],
   );
 
-  const spec = useMemo(
-    () => resolve(car, { presetFields: presetFieldsOf(car, preset) }),
-    [car, preset],
-  );
-
-  const geometry = useMemo(() => {
-    const built = buildView(spec, view);
-
-    // 3ビューで縮尺を揃える。寸法線は車体の外側に置くため先に余白を広げてから配置する
-    const extent = unifiedViewExtent(spec);
-    const bounds = expandBounds(
-      built.bounds,
-      showDimensions
-        ? {
-            width: extent.width * DIMENSION_PADDING.width,
-            height: extent.height * DIMENSION_PADDING.height,
-          }
-        : extent,
-    );
-
-    return {
-      bounds,
-      shapes: [
-        ...(showGrid ? buildGrid(bounds) : []),
-        ...built.shapes,
-        ...(showDimensions ? buildDimensions(spec, view, bounds) : []),
-      ],
-    };
-  }, [spec, view, showGrid, showDimensions]);
-
-  /** 車の入力を差し替える。ロックの付け外しはすべてここを通る */
-  const updateCar = useCallback(
+  /** 編集中の車の入力を差し替える */
+  const updateEditing = useCallback(
     (next: (current: CarInput) => CarInput) => {
-      setState({ ...state, car: next(state.car) });
+      const key = active === 'b' && state.b !== undefined ? 'b' : 'a';
+      const target = key === 'b' ? state.b : state.a;
+      if (target === undefined) {
+        return;
+      }
+      setState({ ...state, [key]: { ...target, car: next(target.car) } });
     },
-    [state, setState],
+    [state, setState, active],
   );
 
   const handleDimensionChange = useCallback(
     (key: DimensionKey, value: number) => {
-      updateCar((current) => setDimension(current, key, value));
+      updateEditing((current) => setDimension(current, key, value));
     },
-    [updateCar],
+    [updateEditing],
   );
 
   const handleSilhouetteChange = useCallback(
     (silhouette: Silhouette) => {
-      updateCar((current) => setSilhouette(current, silhouette));
+      updateEditing((current) => setSilhouette(current, silhouette));
     },
-    [updateCar],
+    [updateEditing],
   );
 
   const handleTireChange = useCallback(
     (notation: string) => {
-      updateCar((current) => setTire(current, notation));
+      updateEditing((current) => setTire(current, notation));
     },
-    [updateCar],
+    [updateEditing],
   );
 
   const handleDoorsChange = useCallback(
     (doors: number) => {
-      updateCar((current) => setDoors(current, doors));
+      updateEditing((current) => setDoors(current, doors));
     },
-    [updateCar],
+    [updateEditing],
   );
 
   const handleUnlock = useCallback(
     (key: SpecFieldKey) => {
-      updateCar((current) => unlockField(current, key));
+      updateEditing((current) => unlockField(current, key));
     },
-    [updateCar],
+    [updateEditing],
   );
 
   /** すべて推定に戻す。車種の紐付けと名前も外す */
   const handleResetAll = useCallback(() => {
-    const { presetId: _dropped, ...rest } = state;
-    setState({ ...rest, car: setName(unlockAll(state.car), '') });
-  }, [state, setState]);
+    const key = active === 'b' && state.b !== undefined ? 'b' : 'a';
+    const target = key === 'b' ? state.b : state.a;
+    if (target === undefined) {
+      return;
+    }
+    setState({ ...state, [key]: { car: setName(unlockAll(target.car), '') } });
+  }, [state, setState, active]);
 
   const handleLoadPreset = useCallback(
     (loaded: CarPreset) => {
-      setState({ ...state, presetId: loaded.id, car: presetToCarInput(loaded) });
+      const key = active === 'b' && state.b !== undefined ? 'b' : 'a';
+      setState({ ...state, [key]: { presetId: loaded.id, car: presetToCarInput(loaded) } });
     },
-    [state, setState],
+    [state, setState, active],
   );
 
-  const setView = useCallback(
-    (next: ViewKind) => {
-      setState({ ...state, view: next });
-    },
-    [state, setState],
-  );
+  const handleAddCarB = useCallback(() => {
+    setState({ ...state, b: NEW_CAR, active: 'b' });
+  }, [state, setState]);
+
+  const handleRemoveCarB = useCallback(() => {
+    const { b: _removed, ...rest } = state;
+    setState({ ...rest, active: 'a' });
+  }, [state, setState]);
+
+  const nameOf = (spec: ResolvedSpec, fallback: string) => spec.name ?? fallback;
 
   return (
     <div className="app">
@@ -140,10 +143,41 @@ export default function App() {
 
       <div className="layout">
         <section className="layout__panel" aria-label="入力">
+          <div className="cartabs" role="group" aria-label="編集する車">
+            <button
+              type="button"
+              className="cartabs__item cartabs__item--a"
+              aria-pressed={active === 'a'}
+              onClick={() => setState({ ...state, active: 'a' })}
+            >
+              車A
+            </button>
+
+            {comparing ? (
+              <>
+                <button
+                  type="button"
+                  className="cartabs__item cartabs__item--b"
+                  aria-pressed={active === 'b'}
+                  onClick={() => setState({ ...state, active: 'b' })}
+                >
+                  車B
+                </button>
+                <button type="button" className="cartabs__remove" onClick={handleRemoveCarB}>
+                  車Bを削除
+                </button>
+              </>
+            ) : (
+              <button type="button" className="cartabs__add" onClick={handleAddCarB}>
+                車Bを追加して比較
+              </button>
+            )}
+          </div>
+
           <InputPanel
-            input={car}
-            spec={spec}
-            presetId={presetId}
+            input={editing.car}
+            spec={editingSpec}
+            presetId={editing.presetId}
             onLoadPreset={handleLoadPreset}
             onSilhouetteChange={handleSilhouetteChange}
             onDimensionChange={handleDimensionChange}
@@ -163,7 +197,7 @@ export default function App() {
                   type="button"
                   className="segmented__item"
                   aria-pressed={kind === view}
-                  onClick={() => setView(kind)}
+                  onClick={() => setState({ ...state, view: kind })}
                 >
                   {VIEW_LABELS[kind]}
                 </button>
@@ -190,42 +224,82 @@ export default function App() {
             </div>
           </div>
 
+          {comparing ? (
+            <div className="viewbar">
+              <div className="segmented" role="group" aria-label="比較の表示">
+                {(['sideBySide', 'overlay'] as readonly CompareMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className="segmented__item"
+                    aria-pressed={mode === compare}
+                    onClick={() => setState({ ...state, compare: mode })}
+                  >
+                    {COMPARE_MODE_LABELS[mode]}
+                  </button>
+                ))}
+              </div>
+
+              {compare === 'overlay' && view !== 'front' ? (
+                <label className="originselect">
+                  <span>基準</span>
+                  <select
+                    value={origin}
+                    aria-label="重ねる基準点"
+                    onChange={(event) =>
+                      setState({ ...state, origin: event.target.value as OverlayOrigin })
+                    }
+                  >
+                    {OVERLAY_ORIGINS.map((value) => (
+                      <option key={value} value={value}>
+                        {OVERLAY_ORIGIN_LABELS[value]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+            </div>
+          ) : null}
+
           <CarSvg
-            shapes={geometry.shapes}
-            bounds={geometry.bounds}
-            title={`${SILHOUETTE_LABELS[spec.silhouette]}の${VIEW_LABELS[view]}図`}
+            layers={scene.layers}
+            bounds={scene.bounds}
+            title={
+              comparing && specB !== undefined
+                ? `${SILHOUETTE_LABELS[specA.silhouette]}と${SILHOUETTE_LABELS[specB.silhouette]}の${VIEW_LABELS[view]}図`
+                : `${SILHOUETTE_LABELS[specA.silhouette]}の${VIEW_LABELS[view]}図`
+            }
           />
 
-          {spec.warnings.length > 0 ? (
+          {editingSpec.warnings.length > 0 ? (
             <ul className="warnings" aria-label="警告">
-              {spec.warnings.map((warning) => (
+              {editingSpec.warnings.map((warning) => (
                 <li key={warning}>{warning}</li>
               ))}
             </ul>
           ) : null}
 
-          <dl className="spec">
-            <SpecItem label="全長" value={spec.length} />
-            <SpecItem label="全幅" value={spec.width} />
-            <SpecItem label="全高" value={spec.height} />
-            <SpecItem label="ホイールベース" value={spec.wheelbase} />
-            <SpecItem label="フロントOH" value={spec.frontOverhang} />
-            <SpecItem label="リアOH" value={spec.rearOverhang} />
-            <SpecItem label="最低地上高" value={spec.groundClearance} />
-            <SpecItem label="フロントトレッド" value={spec.trackFront} />
-            <SpecItem label="タイヤ外径" value={Math.round(spec.tire.outerDiameter)} />
-          </dl>
+          <SpecTable
+            a={specA}
+            b={specB}
+            nameA={nameOf(specA, '車A')}
+            {...(specB !== undefined ? { nameB: nameOf(specB, '車B') } : {})}
+          />
         </section>
       </div>
     </div>
   );
 }
 
-function SpecItem({ label, value }: { readonly label: string; readonly value: number }) {
-  return (
-    <div className="spec__item">
-      <dt>{label}</dt>
-      <dd>{value.toLocaleString('ja-JP')} mm</dd>
-    </div>
-  );
+/** 車の状態を解決済みスペックに変換する。車種由来の判定もここで行う */
+function useSpec(carState: CarState): ResolvedSpec;
+function useSpec(carState: CarState | undefined): ResolvedSpec | undefined;
+function useSpec(carState: CarState | undefined): ResolvedSpec | undefined {
+  return useMemo(() => {
+    if (carState === undefined) {
+      return undefined;
+    }
+    const preset = carState.presetId !== undefined ? findPreset(carState.presetId) : undefined;
+    return resolve(carState.car, { presetFields: presetFieldsOf(carState.car, preset) });
+  }, [carState]);
 }

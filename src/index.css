@@ -241,6 +241,81 @@ body {
   padding: 0 8px;
 }
 
+/* --- 車A / 車B の切替 ---------------------------------------------------- */
+
+.cartabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.cartabs__item {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+/* 選択中の車は図の線と同じ色にして、どちらを編集しているか一目で分かるようにする */
+.cartabs__item--a[aria-pressed='true'] {
+  border-color: var(--line-a);
+  color: var(--line-a);
+  font-weight: 600;
+}
+
+.cartabs__item--b[aria-pressed='true'] {
+  border-color: var(--line-b);
+  color: var(--line-b);
+  font-weight: 600;
+}
+
+.cartabs__add,
+.cartabs__remove {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px dashed var(--hairline);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.cartabs__remove {
+  margin-left: auto;
+  border-style: solid;
+  color: var(--muted);
+}
+
+/* --- 基準点の選択 -------------------------------------------------------- */
+
+.originselect {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.originselect select {
+  min-height: 40px;
+  padding: 0 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.82rem;
+}
+
 /* --- 車種ピッカー -------------------------------------------------------- */
 
 .presets__search {
@@ -425,8 +500,14 @@ body {
   --car-line: var(--line-a);
 }
 
+/* 2台目は色で区別する。重ねたときに見分けられるよう少し透かす */
 .car--b {
   --car-line: var(--line-b);
+}
+
+.car--b .car__body,
+.car--b .car__tire {
+  opacity: 0.85;
 }
 
 .car path,
@@ -490,27 +571,60 @@ body {
   color: var(--warn);
 }
 
-.spec {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 6px 16px;
-  margin: 12px 0 0;
-}
+/* --- スペック比較表 ------------------------------------------------------ */
 
-.spec__item {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  border-bottom: 1px solid var(--hairline);
-  padding-bottom: 3px;
+.spectable {
+  width: 100%;
+  margin-top: 12px;
+  border-collapse: collapse;
   font-size: 0.82rem;
 }
 
-.spec dt {
+.spectable__caption {
+  text-align: left;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding-bottom: 6px;
+}
+
+.spectable th,
+.spectable td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--hairline);
+  text-align: right;
+}
+
+.spectable thead th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+.spectable tbody th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.spectable__a {
+  color: var(--line-a);
+}
+
+.spectable__b {
+  color: var(--line-b);
+}
+
+.spectable__num {
+  font-variant-numeric: tabular-nums;
+}
+
+.spectable__diff {
   color: var(--muted);
 }
 
-.spec dd {
-  margin: 0;
-  font-variant-numeric: tabular-nums;
+/* 値が異なる行の差分を強調する */
+.spectable tr[data-differs='true'] .spectable__diff {
+  color: var(--accent);
+  font-weight: 600;
 }
