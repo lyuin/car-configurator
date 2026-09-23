@@ -2,7 +2,9 @@
   --bg: #fbfbfc;
   --fg: #1c1c1e;
   --muted: #6b6b72;
-  --line: #1c1c1e;
+  --hairline: #d3d3d8;
+  --line-a: #1c1c1e;
+  --line-b: #c2410c;
   --accent: #0a7ea4;
 
   color-scheme: light dark;
@@ -16,7 +18,9 @@
     --bg: #16161a;
     --fg: #f2f2f5;
     --muted: #9a9aa2;
-    --line: #f2f2f5;
+    --hairline: #3a3a40;
+    --line-a: #f2f2f5;
+    --line-b: #fb923c;
     --accent: #4fc3e8;
   }
 }
@@ -43,10 +47,112 @@ body {
 
 .app h1 {
   font-size: 1.4rem;
-  margin: 0 0 0.5em;
+  margin: 0 0 0.75em;
 }
 
-.app__status {
-  color: var(--muted);
+/* --- シルエット切替 ------------------------------------------------------ */
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.segmented__item {
+  /* iPad のタップ目標として十分な高さを確保する */
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
   font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.segmented__item[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* --- 車の線画 ------------------------------------------------------------ */
+
+.car {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 55vh;
+  /* 線の色は variant ごとに切り替える */
+  --car-line: var(--line-a);
+}
+
+.car--b {
+  --car-line: var(--line-b);
+}
+
+.car path,
+.car circle {
+  fill: none;
+  stroke: var(--car-line);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.car__body {
+  stroke-width: 2;
+}
+
+.car__tire {
+  stroke-width: 2;
+}
+
+.car__rim {
+  stroke-width: 1.5;
+  opacity: 0.6;
+}
+
+.car__glass {
+  stroke-width: 1.5;
+  opacity: 0.75;
+}
+
+.car__detail {
+  stroke-width: 1;
+  opacity: 0.5;
+}
+
+.car__ground {
+  stroke-width: 1;
+  opacity: 0.35;
+  stroke-dasharray: 8 6;
+}
+
+/* --- スペック表示 -------------------------------------------------------- */
+
+.spec {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px 16px;
+  margin: 16px 0 0;
+}
+
+.spec__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 4px;
+  font-size: 0.9rem;
+}
+
+.spec dt {
+  color: var(--muted);
+}
+
+.spec dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
 }

@@ -168,10 +168,22 @@ describe('resolve タイヤの推定', () => {
     expect(spec.tire.notation).toBe('225/55R19');
   });
 
-  it('ハイエース相当の寸法から実車と同じ 195/80R15 を導く', () => {
-    const spec = resolve({ silhouette: 'van', length: 5380 });
+  it('スポーツカーは幅広で薄いサイドウォールになる', () => {
+    const spec = resolve({ silhouette: 'sports' });
 
-    expect(spec.tire.notation).toBe('195/80R15');
+    expect(spec.tire.notation).toBe('275/35R20');
+    // 扁平率が低く、リム径が外径の大半を占める
+    expect(spec.tire.aspectRatio).toBeLessThanOrEqual(40);
+    expect(spec.tire.rimDiameter / spec.tire.outerDiameter).toBeGreaterThan(0.7);
+  });
+
+  it('同じ全長ならスポーツカーの方がセダンより低く幅広になる', () => {
+    const sports = resolve({ silhouette: 'sports', length: 4500 });
+    const sedan = resolve({ silhouette: 'sedan', length: 4500 });
+
+    expect(sports.height).toBeLessThan(sedan.height);
+    expect(sports.width).toBeGreaterThan(sedan.width);
+    expect(sports.wheelbase).toBeLessThan(sedan.wheelbase);
   });
 
   it('全長を伸ばすとタイヤ外径も追従して大きくなる', () => {
@@ -202,7 +214,7 @@ describe('resolve の不変条件', () => {
     { silhouette: 'pickup', wheelbase: 3100, rearOverhang: 1200 },
     { silhouette: 'minivan', length: 4900, wheelbase: 2950, frontOverhang: 950, rearOverhang: 1000 },
     { silhouette: 'coupe', length: 4400, tire: '245/35R20' },
-    { silhouette: 'van', length: 5300, height: 2200 },
+    { silhouette: 'sports', length: 4500, height: 1200 },
   ];
 
   it.each(inputs)('全長 = フロントOH + WB + リアOH が成立する (%j)', (input) => {

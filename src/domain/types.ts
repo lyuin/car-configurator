@@ -10,9 +10,9 @@ export const SILHOUETTES = [
   'sedan',
   'wagon',
   'coupe',
+  'sports',
   'suv',
   'minivan',
-  'van',
   'pickup',
 ] as const;
 
@@ -24,9 +24,9 @@ export const SILHOUETTE_LABELS: Record<Silhouette, string> = {
   sedan: 'セダン',
   wagon: 'ワゴン',
   coupe: 'クーペ',
+  sports: 'スポーツ',
   suv: 'SUV',
   minivan: 'ミニバン',
-  van: 'バン',
   pickup: 'ピックアップ',
 };
 

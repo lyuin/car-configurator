@@ -34,8 +34,8 @@ export interface SilhouetteRatios {
 
 /**
  * 参考にした代表車（比率の検算用）:
- * kei=N-BOX / hatch=Golf / sedan=Camry / wagon=Levorg / coupe=GR86・911
- * suv=CX-5 / minivan=Alphard / van=Hiace(ロング) / pickup=Hilux
+ * kei=N-BOX / hatch=Golf / sedan=Camry / wagon=Levorg / coupe=GR86・Mustang
+ * sports=911・296GTB / suv=CX-5 / minivan=Alphard / pickup=Hilux
  */
 export const SILHOUETTE_RATIOS: Record<Silhouette, SilhouetteRatios> = {
   // 軽は全長が短いのにホイールベースが長く、オーバーハングが極端に短い
@@ -91,19 +91,33 @@ export const SILHOUETTE_RATIOS: Record<Silhouette, SilhouetteRatios> = {
     doors: 5,
     defaultLength: 4755,
   },
-  // クーペは車種ごとのばらつきが大きい。低く、幅広く、リムが大きい方向に寄せる
+  // ロングノーズでキャビンが後退した2ドア。GR86・Mustang 系
   coupe: {
-    wheelbase: 0.58,
+    wheelbase: 0.585,
     frontOverhang: 0.19,
-    height: 0.29,
-    width: 0.41,
+    height: 0.3,
+    width: 0.415,
     track: 0.865,
-    groundClearance: 120,
-    tireDiameter: 0.15,
-    tireWidth: 0.135,
+    groundClearance: 130,
+    tireDiameter: 0.148,
+    tireWidth: 0.125,
     rimFactor: 0.7,
     doors: 2,
-    defaultLength: 4400,
+    defaultLength: 4265,
+  },
+  // 低くワイド。ホイールベースが短くリム径が大きい。911・296GTB 系
+  sports: {
+    wheelbase: 0.555,
+    frontOverhang: 0.205,
+    height: 0.275,
+    width: 0.42,
+    track: 0.865,
+    groundClearance: 110,
+    tireDiameter: 0.152,
+    tireWidth: 0.145,
+    rimFactor: 0.74,
+    doors: 2,
+    defaultLength: 4530,
   },
   suv: {
     wheelbase: 0.585,
@@ -130,20 +144,6 @@ export const SILHOUETTE_RATIOS: Record<Silhouette, SilhouetteRatios> = {
     rimFactor: 0.63,
     doors: 5,
     defaultLength: 4995,
-  },
-  // キャブオーバーでフロントオーバーハングが極端に短い
-  van: {
-    wheelbase: 0.58,
-    frontOverhang: 0.125,
-    height: 0.37,
-    width: 0.35,
-    track: 0.855,
-    groundClearance: 170,
-    tireDiameter: 0.128,
-    tireWidth: 0.105,
-    rimFactor: 0.55,
-    doors: 4,
-    defaultLength: 5380,
   },
   pickup: {
     wheelbase: 0.6,
