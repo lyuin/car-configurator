@@ -5,7 +5,7 @@
 
 ## 進捗（2026-09-23 時点）
 
-**Task 1 完了。次は Task 2（ドメイン型とタイヤ規格パーサ）。**
+**Task 1・Task 2 完了。次は Task 3（自動補完エンジン）。**
 
 - 公開 URL: https://lyuin.github.io/car-configurator/
 - リポジトリ: https://github.com/lyuin/car-configurator （public）
@@ -161,11 +161,24 @@ interface ResolvedSpec extends Required<Omit<CarInput, 'name'>> {
 - iPad 向け `viewport` メタタグ（`viewport-fit=cover`、ユーザースケール許可）
 - Demo: 公開 Pages URL を iPad Safari で開き、プレースホルダ画面が表示される
 
-### Task 2: ドメイン型とタイヤ規格パーサ
+### Task 2: ドメイン型とタイヤ規格パーサ ✅ 完了
+
+実装: `src/domain/types.ts`（`Silhouette` / `CarInput` / `ResolvedSpec` / `TireSpec` / `ParseResult`）、
+`src/domain/tire.ts`（`parseTireSpec` / `tireOuterDiameter` / `formatTireSpec`）、テスト31件。
+
+決めたこと:
+- エラーは例外ではなく `ParseResult<T> = {ok:true,value} | {ok:false,error}` で返す。テキスト入力中の不正な文字列を「異常」ではなく「まだ有効でない状態」として UI に出したいため
+- 入力は `String.normalize('NFKC')` してから解析。iPad の日本語キーボードの全角 `２２５／５５Ｒ１８` を救う
+- `P` / `LT` プレフィックス、`ZR`、末尾のロードインデックス（`95V XL`）、リム径 0.5 刻みを受け付ける
+- 受付範囲: タイヤ幅 100〜400mm / 扁平率 15〜95% / リム径 10〜30inch
+
+<details>
+<summary>当初のタスク定義</summary>
 - `CarInput` / `ResolvedSpec` / `Silhouette` の型定義
 - `parseTireSpec('225/55R18')` → 幅・扁平率・リム径・外径 を返す純関数
 - テスト: 正常系（複数サイズの外径）、異常系（不正文字列、範囲外扁平率）、大文字小文字・スペースの揺れ
 - Demo: `npm test` が全通し、任意サイズの外径が算出できる
+</details>
 
 ### Task 3: 自動補完エンジン
 - シルエット別比率テーブル（WB/全長、フロントOH/全長、全高/全長、トレッド/全幅、最低地上高 など）
