@@ -5,22 +5,26 @@
 
 ## 進捗（2026-09-23 時点）
 
-**Task 1 実装中（未完了）**
+**Task 1 完了。次は Task 2（ドメイン型とタイヤ規格パーサ）。**
 
-完了:
-- `package.json` 作成、依存インストール（バージョンは `--save-exact` で固定）
+- 公開 URL: https://lyuin.github.io/car-configurator/
+- リポジトリ: https://github.com/lyuin/car-configurator （public）
+
+Task 1 で作ったもの:
+- `package.json` と依存（バージョンは `--save-exact` で固定）
 - `vite.config.ts`（Pages サブパス対応 + Vitest 設定）
 - `tsconfig.json` / `tsconfig.app.json` / `tsconfig.node.json`（strict 系フル有効）
-- `.gitignore`
+- `index.html`（iPad 向け viewport: `viewport-fit=cover`、ユーザースケール許可）
+- `src/main.tsx` / `src/App.tsx` / `src/index.css`（プレースホルダ、セーフエリア対応）
+- `src/vite-env.d.ts`（TypeScript 7 が CSS の副作用インポートに型宣言を要求するため必要）
+- `src/__tests__/smoke.test.tsx`（React + TSX + Vitest の配線検証）
+- `.github/workflows/deploy.yml`（main push → `npm ci` → `npm test` → `npm run build` → Pages）
+- `README.md` / `.gitignore`
 
-未着手（Task 1 の残り）:
-- `index.html`（iPad 向け viewport メタタグ）
-- `src/main.tsx` / `src/App.tsx` / `src/index.css`（プレースホルダ画面）
-- `src/__tests__/smoke.test.ts`（Vitest 動作確認用ダミーテスト）
-- `.github/workflows/deploy.yml`（main への push で build → Pages デプロイ）
-- `README.md`
-- GitHub リポジトリ作成（`gh repo create`）と Pages 設定（Settings → Pages → Source: GitHub Actions）
-- **注意**: 現時点では `src/` が存在しないため `npm run build` はまだ通らない
+検証済み:
+- `npm test` / `npm run build` が通る
+- Pages は Actions ソースで有効化（`gh api -X POST repos/lyuin/car-configurator/pages -f build_type=workflow`）
+- 公開 URL が HTTP 200、`base` が `/car-configurator/` に切り替わり JS / CSS も 200 で解決
 
 インストール済みバージョン:
 
@@ -33,7 +37,8 @@
 | @vitejs/plugin-react | 6.1.1 |
 | jsdom | 29.1.1 |
 
-TypeScript は 7 系が入っている。`tsc -b` の挙動に問題が出る場合は 5 系へのダウングレードを検討する。
+TypeScript は 7 系。`tsc -b` は問題なく動作した。ただし CSS の副作用インポートには
+`src/vite-env.d.ts` の `/// <reference types="vite/client" />` が必須（無いと TS2882）。
 
 ## Problem Statement
 
@@ -149,7 +154,7 @@ interface ResolvedSpec extends Required<Omit<CarInput, 'name'>> {
 
 ## タスク一覧
 
-### Task 1: プロジェクト基盤と GitHub Pages への自動デプロイ（実装中）
+### Task 1: プロジェクト基盤と GitHub Pages への自動デプロイ ✅ 完了
 - Vite + React + TypeScript 初期化、Vitest 導入、ダミーテスト1本
 - `vite.config.ts` の `base` をリポジトリ名に（Pages サブパス対応）
 - GitHub Actions で main push 時に build → Pages デプロイ
