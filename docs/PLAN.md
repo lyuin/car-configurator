@@ -7,6 +7,9 @@
 
 **全11タスク完了。** 以降は「今後の拡張候補」から選んで進める。
 
+**3D化の検討中**: ゲームらしい可愛い3D UI への方向転換について、モックで描画スタイルの
+認識合わせまで完了。合意内容と未決定事項は [3D-STYLE.md](3D-STYLE.md) を参照。実装は未着手。
+
 - 公開 URL: https://lyuin.github.io/car-configurator/
 - リポジトリ: https://github.com/lyuin/car-configurator （public）
 
