@@ -626,9 +626,10 @@ button,
   font-size: 0.85rem;
 }
 
-.toggle--trial span {
-  /* 試作であることが分かるように */
-  font-style: italic;
+.viewbar__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
 }
 
 /* --- 警告とスペック ------------------------------------------------------ */

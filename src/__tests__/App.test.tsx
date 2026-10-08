@@ -2,6 +2,16 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
 
+/**
+ * 3D表示は WebGL が必要で jsdom では描画できないため差し替える。
+ * 形状生成のロジックは mesh.test.ts が検証している。
+ */
+vi.mock('../components/Car3D', () => ({
+  Car3D: ({ title }: { title?: string }) => (
+    <div data-testid="car3d" role="img" aria-label={title ?? ''} />
+  ),
+}));
+
 /** 指定した寸法フィールドの要素をまとめて取り出す */
 function field(name: string) {
   const container = document.querySelector(`[data-field="${name}"]`);
@@ -867,5 +877,97 @@ describe('App 前回の状態の復元', () => {
         name: '並置',
       }),
     ).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+describe('App 3D表示', () => {
+  beforeEach(() => {
+    window.history.replaceState(null, '', '#');
+  });
+
+  it('既定では2D図が出て、3Dはオフ', () => {
+    render(<App />);
+
+    expect(screen.getByRole('checkbox', { name: '3D' })).not.toBeChecked();
+    expect(screen.queryByTestId('car3d')).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'SUVの側面図' })).toBeInTheDocument();
+  });
+
+  it('3Dを入れると3D表示に切り替わる', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('checkbox', { name: '3D' }));
+
+    expect(await screen.findByTestId('car3d')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'SUVの側面図' })).not.toBeInTheDocument();
+  });
+
+  /** 2D図だけの機能を3Dで出しておくと、何もしないコントロールになる */
+  it('3Dではビュー切替・グリッド・寸法線を隠す', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('checkbox', { name: '3D' }));
+
+    expect(screen.queryByRole('group', { name: 'ビュー' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'グリッド' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: '寸法線' })).not.toBeInTheDocument();
+    expect(screen.getByText(/ドラッグで回転/)).toBeInTheDocument();
+  });
+
+  it('3Dでは重ね・並置と基準点の選択を隠す（常に横に並べるため）', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: '車Bを追加して比較' }));
+    expect(screen.getByRole('group', { name: '比較の表示' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('checkbox', { name: '3D' }));
+
+    expect(screen.queryByRole('group', { name: '比較の表示' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: '重ねる基準点' })).not.toBeInTheDocument();
+  });
+
+  it('3Dでもスペック表と車A/車Bの切替は残る', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: '車Bを追加して比較' }));
+    await user.click(screen.getByRole('checkbox', { name: '3D' }));
+
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '車A' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '車B' })).toBeInTheDocument();
+  });
+
+  it('3Dの状態が URL に入る', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('checkbox', { name: '3D' }));
+
+    await waitFor(() => expect(window.location.hash).toContain('v3=1'));
+  });
+
+  it('URL から3D表示を復元する', () => {
+    window.history.replaceState(null, '', '#s1&v3=1&a=sil:kei,L:3395');
+    render(<App />);
+
+    expect(screen.getByTestId('car3d')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: '3D' })).toBeChecked();
+  });
+
+  it('2台のとき3Dのタイトルに両方のシルエットが入る', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: '車Bを追加して比較' }));
+    await user.click(screen.getByRole('checkbox', { name: '3D' }));
+
+    expect(screen.getByTestId('car3d')).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('SUVとセダンの3D表示'),
+    );
   });
 });

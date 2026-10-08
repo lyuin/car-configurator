@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useMemo } from 'react';
 import { CarSvg } from './components/CarSvg';
 import { InputPanel } from './components/InputPanel';
 import { ShareButton } from './components/ShareButton';
@@ -41,11 +41,7 @@ export default function App() {
   const [state, setState] = useUrlState();
   const { a, b, active, view, compare, origin, showGrid, showDimensions } = state;
 
-  /**
-   * 3D表示の試作。評価用なので URL には入れず、ローカル状態だけで持つ。
-   * 気に入ったら Task として作り込み、気に入らなければ消す。
-   */
-  const [show3D, setShow3D] = useState(false);
+  const show3D = state.show3D;
 
   const specA = useSpec(a);
   const specB = useSpec(b);
@@ -202,49 +198,61 @@ export default function App() {
 
         <section className="layout__view" aria-label="図">
           <div className="viewbar">
-            <div className="segmented" role="group" aria-label="ビュー">
-              {VIEW_KINDS.map((kind) => (
-                <button
-                  key={kind}
-                  type="button"
-                  className="segmented__item"
-                  aria-pressed={kind === view}
-                  onClick={() => setState({ ...state, view: kind })}
-                >
-                  {VIEW_LABELS[kind]}
-                </button>
-              ))}
-            </div>
+            {/* ビューの切替とグリッド・寸法線は2D図だけの機能なので、3Dでは隠す */}
+            {show3D ? (
+              <p className="viewbar__hint">ドラッグで回転 / 上下で視点の高さ</p>
+            ) : (
+              <div className="segmented" role="group" aria-label="ビュー">
+                {VIEW_KINDS.map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    className="segmented__item"
+                    aria-pressed={kind === view}
+                    onClick={() => setState({ ...state, view: kind })}
+                  >
+                    {VIEW_LABELS[kind]}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="viewbar__toggles">
+              {show3D ? null : (
+                <>
+                  <label className="toggle">
+                    <input
+                      type="checkbox"
+                      checked={showGrid}
+                      onChange={(event) => setState({ ...state, showGrid: event.target.checked })}
+                    />
+                    <span>グリッド</span>
+                  </label>
+                  <label className="toggle">
+                    <input
+                      type="checkbox"
+                      checked={showDimensions}
+                      onChange={(event) =>
+                        setState({ ...state, showDimensions: event.target.checked })
+                      }
+                    />
+                    <span>寸法線</span>
+                  </label>
+                </>
+              )}
               <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={showGrid}
-                  onChange={(event) => setState({ ...state, showGrid: event.target.checked })}
-                />
-                <span>グリッド</span>
-              </label>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={showDimensions}
-                  onChange={(event) => setState({ ...state, showDimensions: event.target.checked })}
-                />
-                <span>寸法線</span>
-              </label>
-              <label className="toggle toggle--trial">
                 <input
                   type="checkbox"
                   checked={show3D}
-                  onChange={(event) => setShow3D(event.target.checked)}
+                  onChange={(event) => setState({ ...state, show3D: event.target.checked })}
                 />
-                <span>3D（試作）</span>
+                <span>3D</span>
               </label>
             </div>
           </div>
 
-          {comparing ? (
+          {/* 3D は常に2台を横に並べるので、重ね/並置と基準点は効かない */}
+          {comparing && !show3D ? (
             <div className="viewbar">
               <div className="segmented" role="group" aria-label="比較の表示">
                 {(['sideBySide', 'overlay'] as readonly CompareMode[]).map((mode) => (
@@ -286,7 +294,11 @@ export default function App() {
               <Car3D
                 a={specA}
                 b={specB}
-                title={`${SILHOUETTE_LABELS[specA.silhouette]}の3D表示（ドラッグで回転）`}
+                title={
+                  specB !== undefined
+                    ? `${SILHOUETTE_LABELS[specA.silhouette]}と${SILHOUETTE_LABELS[specB.silhouette]}の3D表示（ドラッグで回転）`
+                    : `${SILHOUETTE_LABELS[specA.silhouette]}の3D表示（ドラッグで回転）`
+                }
               />
             </Suspense>
           ) : (

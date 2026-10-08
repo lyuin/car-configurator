@@ -40,6 +40,13 @@ export interface AppState {
   readonly origin: OverlayOrigin;
   readonly showGrid: boolean;
   readonly showDimensions: boolean;
+  /**
+   * 3D表示。
+   *
+   * `view`（側面/正面/上面）とは別の軸として持つ。`ViewKind` に混ぜると
+   * 「3Dのときは寸法線が出ない」といった例外処理が各所に生まれる。
+   */
+  readonly show3D: boolean;
 }
 
 export const DEFAULT_STATE: AppState = {
@@ -50,6 +57,7 @@ export const DEFAULT_STATE: AppState = {
   origin: 'front',
   showGrid: true,
   showDimensions: false,
+  show3D: false,
 };
 
 /** 寸法項目の短縮キー。URL を短く保つ */
@@ -99,6 +107,9 @@ export function encodeState(state: AppState): string {
   if (state.showDimensions !== DEFAULT_STATE.showDimensions) {
     parts.push(`d=${state.showDimensions ? 1 : 0}`);
   }
+  if (state.show3D !== DEFAULT_STATE.show3D) {
+    parts.push(`v3=${state.show3D ? 1 : 0}`);
+  }
 
   // 比較に関する設定は2台目があるときだけ意味を持つ
   if (state.b !== undefined) {
@@ -140,6 +151,7 @@ export function decodeState(hash: string): AppState {
   let view = DEFAULT_STATE.view;
   let showGrid = DEFAULT_STATE.showGrid;
   let showDimensions = DEFAULT_STATE.showDimensions;
+  let show3D = DEFAULT_STATE.show3D;
   let compare = DEFAULT_STATE.compare;
   let origin = DEFAULT_STATE.origin;
   let active = DEFAULT_STATE.active;
@@ -167,6 +179,9 @@ export function decodeState(hash: string): AppState {
         break;
       case 'd':
         showDimensions = value === '1';
+        break;
+      case 'v3':
+        show3D = value === '1';
         break;
       case 'm':
         if (value === 'sbs') {
@@ -224,6 +239,7 @@ export function decodeState(hash: string): AppState {
     origin,
     showGrid,
     showDimensions,
+    show3D,
   };
 }
 

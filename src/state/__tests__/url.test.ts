@@ -25,6 +25,14 @@ describe('encodeState', () => {
     expect(encodeState(state({ view: 'front' }))).toBe('s1&v=front&a=sil:suv');
     expect(encodeState(state({ showGrid: false }))).toBe('s1&g=0&a=sil:suv');
     expect(encodeState(state({ showDimensions: true }))).toBe('s1&d=1&a=sil:suv');
+    expect(encodeState(state({ show3D: true }))).toBe('s1&v3=1&a=sil:suv');
+  });
+
+  it('3D は view とは別の軸として保存される', () => {
+    const encoded = encodeState(state({ show3D: true, view: 'top' }));
+
+    expect(encoded).toContain('v3=1');
+    expect(encoded).toContain('v=top');
   });
 
   it('明示指定した寸法だけを短縮キーで載せる', () => {
@@ -120,6 +128,8 @@ describe('decodeState / encodeState のラウンドトリップ', () => {
     DEFAULT_STATE,
     state({ view: 'front' }),
     state({ view: 'top', showGrid: false, showDimensions: true }),
+    state({ show3D: true }),
+    state({ show3D: true, a: carA({ silhouette: 'kei', length: 3395 }) }),
     state({ a: carA({ silhouette: 'kei' }) }),
     state({ a: carA({ silhouette: 'suv', length: 4600 }) }),
     state({ a: carA({ silhouette: 'suv', length: 4575 }, 'mazda-cx-5') }),
