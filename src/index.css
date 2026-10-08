@@ -592,6 +592,45 @@ button,
   font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
 }
 
+/* --- 3D表示（試作） ------------------------------------------------------ */
+
+.car3d {
+  width: 100%;
+  height: 60vh;
+  min-height: 320px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #f3f6fa 0%, #e7edf5 100%);
+  /* ドラッグで回すので、ブラウザのスクロールに取られないようにする */
+  touch-action: none;
+  cursor: grab;
+}
+
+.car3d:active {
+  cursor: grabbing;
+}
+
+@media (prefers-color-scheme: dark) {
+  .car3d {
+    background: linear-gradient(180deg, #23252b 0%, #1a1c21 100%);
+  }
+}
+
+.car3d__loading {
+  display: grid;
+  place-items: center;
+  height: 60vh;
+  min-height: 320px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.toggle--trial span {
+  /* 試作であることが分かるように */
+  font-style: italic;
+}
+
 /* --- 警告とスペック ------------------------------------------------------ */
 
 .warnings {

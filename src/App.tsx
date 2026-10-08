@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { CarSvg } from './components/CarSvg';
 import { InputPanel } from './components/InputPanel';
 import { ShareButton } from './components/ShareButton';
@@ -28,12 +28,24 @@ import type { CompareMode, OverlayOrigin } from './domain/scene';
 import type { CarInput, DimensionKey, ResolvedSpec, Silhouette, SpecFieldKey } from './domain/types';
 import type { CarState } from './state/url';
 
+/**
+ * three.js は gzip で 150KB ほどある。3D を開くまで読み込まないよう遅延させる。
+ * 2D だけ使う人のために初期読み込みを増やさない。
+ */
+const Car3D = lazy(() => import('./components/Car3D').then((m) => ({ default: m.Car3D })));
+
 /** 2台目を追加するときの初期状態。A と同じ車を並べても比較にならないのでセダンにする */
 const NEW_CAR: CarState = { car: { silhouette: 'sedan' } };
 
 export default function App() {
   const [state, setState] = useUrlState();
   const { a, b, active, view, compare, origin, showGrid, showDimensions } = state;
+
+  /**
+   * 3D表示の試作。評価用なので URL には入れず、ローカル状態だけで持つ。
+   * 気に入ったら Task として作り込み、気に入らなければ消す。
+   */
+  const [show3D, setShow3D] = useState(false);
 
   const specA = useSpec(a);
   const specB = useSpec(b);
@@ -221,6 +233,14 @@ export default function App() {
                 />
                 <span>寸法線</span>
               </label>
+              <label className="toggle toggle--trial">
+                <input
+                  type="checkbox"
+                  checked={show3D}
+                  onChange={(event) => setShow3D(event.target.checked)}
+                />
+                <span>3D（試作）</span>
+              </label>
             </div>
           </div>
 
@@ -261,15 +281,25 @@ export default function App() {
             </div>
           ) : null}
 
-          <CarSvg
-            layers={scene.layers}
-            bounds={scene.bounds}
-            title={
-              comparing && specB !== undefined
-                ? `${SILHOUETTE_LABELS[specA.silhouette]}と${SILHOUETTE_LABELS[specB.silhouette]}の${VIEW_LABELS[view]}図`
-                : `${SILHOUETTE_LABELS[specA.silhouette]}の${VIEW_LABELS[view]}図`
-            }
-          />
+          {show3D ? (
+            <Suspense fallback={<p className="car3d__loading">3Dを読み込んでいます…</p>}>
+              <Car3D
+                a={specA}
+                b={specB}
+                title={`${SILHOUETTE_LABELS[specA.silhouette]}の3D表示（ドラッグで回転）`}
+              />
+            </Suspense>
+          ) : (
+            <CarSvg
+              layers={scene.layers}
+              bounds={scene.bounds}
+              title={
+                comparing && specB !== undefined
+                  ? `${SILHOUETTE_LABELS[specA.silhouette]}と${SILHOUETTE_LABELS[specB.silhouette]}の${VIEW_LABELS[view]}図`
+                  : `${SILHOUETTE_LABELS[specA.silhouette]}の${VIEW_LABELS[view]}図`
+              }
+            />
+          )}
 
           {editingSpec.warnings.length > 0 ? (
             <ul className="warnings" aria-label="警告">
