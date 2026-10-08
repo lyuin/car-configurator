@@ -73,6 +73,14 @@ const DIMENSION_BY_CODE = new Map<string, DimensionKey>(
 const DIMENSION_LIMIT = { min: 1, max: 20000 } as const;
 const DOORS_LIMIT = { min: 1, max: 8 } as const;
 
+/**
+ * 車名の長さ上限。
+ *
+ * 上限が無いと、共有URLで公開サイト上に任意の長文を表示させられる。
+ * React がエスケープするので XSS にはならないが、コンテンツ偽装は防ぐ。
+ */
+const NAME_MAX = 48;
+
 const COMPARE_CODES: Record<CompareMode, string> = {
   overlay: 'ov',
   sideBySide: 'sbs',
@@ -284,7 +292,10 @@ function decodeCar(encoded: string): CarInput {
     }
 
     if (code === 'n') {
-      const name = unescapeValue(raw);
+      // 制御文字を落としてから長さで切る
+      const name = unescapeValue(raw)
+        .replace(/[\u0000-\u001f\u007f]/g, '')
+        .slice(0, NAME_MAX);
       if (name !== '') {
         car.name = name;
       }

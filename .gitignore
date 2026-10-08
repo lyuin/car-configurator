@@ -4,3 +4,11 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 .vite/
+
+# エージェントの作業ディレクトリ（調査レポート等）
+.agents/
+
+# 将来の誤コミット防止。現状これらのファイルは存在しない
+.env
+.env.*
+*.local

@@ -247,3 +247,36 @@ describe('decodeState 壊れた入力', () => {
     expect(decoded.showDimensions).toBe(true);
   });
 });
+
+describe('車名の制限', () => {
+  /**
+   * 上限が無いと共有URLで公開サイト上に任意の長文を表示させられる。
+   * React がエスケープするので XSS にはならないが、コンテンツ偽装は防ぐ。
+   */
+  it('長すぎる名前は切り詰める', () => {
+    const long = 'あ'.repeat(200);
+    const decoded = decodeState(`s1&a=sil:suv,n:${long}`);
+
+    expect(decoded.a.car.name).toHaveLength(48);
+  });
+
+  it('上限内の名前はそのまま通る', () => {
+    const name = 'マイカー 2号';
+    const decoded = decodeState(encodeState(state({ a: carA({ silhouette: 'suv', name }) })));
+
+    expect(decoded.a.car.name).toBe(name);
+  });
+
+  it('制御文字を落とす', () => {
+    const decoded = decodeState('s1&a=sil:suv,n:a%00b%1Fc');
+
+    // %00 と %1F はエスケープ対象ではないので文字列として入ってくる
+    expect(decoded.a.car.name).not.toMatch(/[\u0000-\u001f]/);
+  });
+
+  it('制御文字だけの名前は無視する', () => {
+    const decoded = decodeState(`s1&a=sil:suv,n:${'\u0001\u0002'}`);
+
+    expect(decoded.a.car.name).toBeUndefined();
+  });
+});
